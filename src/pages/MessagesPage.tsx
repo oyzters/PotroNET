@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,17 +58,74 @@ export function MessagesPage() {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
+    // Realtime: mensajes entrantes en el chat activo
+    useEffect(() => {
+        if (!activeUserId || !user?.id) return;
+
+        const channel = supabase
+            .channel(`chat:${user.id}:${activeUserId}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `receiver_id=eq.${user.id}`,
+            }, (payload) => {
+                const msg = payload.new as Message;
+                if (msg.sender_id === activeUserId) {
+                    setMessages(prev => [...prev, msg]);
+                }
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [activeUserId, user?.id]);
+
+    // Realtime: actualizar lista de conversaciones cuando llega mensaje nuevo
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const channel = supabase
+            .channel(`conversations:${user.id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `receiver_id=eq.${user.id}`,
+            }, () => {
+                fetchConversations();
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [user?.id, fetchConversations]);
+
     const handleSend = async () => {
-        if (!session?.access_token || !activeUserId || !newMessage.trim()) return;
+        if (!session?.access_token || !activeUserId || !newMessage.trim() || !user?.id) return;
+        const content = newMessage.trim();
+        setNewMessage('');
+
+        // Optimistic update: agregar el mensaje inmediatamente sin esperar al servidor
+        const optimisticMsg: Message = {
+            id: crypto.randomUUID(),
+            sender_id: user.id,
+            receiver_id: activeUserId,
+            content,
+            is_read: false,
+            created_at: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+
         setSending(true);
         try {
             await api('/messages', {
                 method: 'POST', token: session.access_token,
-                body: JSON.stringify({ receiver_id: activeUserId, content: newMessage.trim() }),
+                body: JSON.stringify({ receiver_id: activeUserId, content }),
             });
-            setNewMessage('');
-            fetchMessages(activeUserId);
-        } catch { /* silent */ } finally { setSending(false); }
+        } catch {
+            // Revertir si falla
+            setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+            setNewMessage(content);
+        } finally { setSending(false); }
     };
 
     // Chat view
