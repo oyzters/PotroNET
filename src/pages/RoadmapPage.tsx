@@ -3,7 +3,9 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MapIcon, PencilIcon } from 'lucide-react';
+import { CurriculumMapModal } from '@/components/roadmap/CurriculumMapModal';
 
 interface Career { id: string; name: string }
 interface Subject { id: string; name: string; semester: number; credits: number; career_id: string }
@@ -30,6 +32,7 @@ export function RoadmapPage() {
     const [userSubjects, setUserSubjects] = useState<Record<string, string>>({});
     const [careerName, setCareerName] = useState('');
     const [loading, setLoading] = useState(true);
+    const [modalOpen, setModalOpen] = useState(false);
 
     const targetUserId = userId || user?.id;
     const isOwnRoadmap = targetUserId === user?.id;
@@ -83,6 +86,25 @@ export function RoadmapPage() {
         } catch { /* silent */ }
     };
 
+    const handleSaveMapEdit = async (newStatuses: Record<string, string>) => {
+        if (!session?.access_token) return;
+        const allSubjectIds = subjects.map(s => s.id);
+        await Promise.all(
+            allSubjectIds.map(async (subjectId) => {
+                const prev = userSubjects[subjectId] || 'NO_CURSADA';
+                const next = newStatuses[subjectId] || 'NO_CURSADA';
+                if (prev === next) return;
+                await api('/subjects/user', {
+                    method: 'PATCH',
+                    token: session.access_token,
+                    body: JSON.stringify({ subject_id: subjectId, status: next }),
+                });
+            })
+        );
+        setUserSubjects(newStatuses);
+        setModalOpen(false);
+    };
+
     // Group by semester
     const semesters: Record<number, Subject[]> = {};
     subjects.forEach(s => {
@@ -112,9 +134,17 @@ export function RoadmapPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold">Mapa Curricular</h1>
-                <p className="text-sm text-muted-foreground">{careerName || 'Carrera'}</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold">Mapa Curricular</h1>
+                    <p className="text-sm text-muted-foreground">{careerName || 'Carrera'}</p>
+                </div>
+                {isOwnRoadmap && subjects.length > 0 && (
+                    <Button size="sm" onClick={() => setModalOpen(true)}>
+                        <PencilIcon />
+                        Editar mapa
+                    </Button>
+                )}
             </div>
 
             {/* Progress bar */}
@@ -201,6 +231,14 @@ export function RoadmapPage() {
                     </div>
                 ))}
             </div>
+
+            <CurriculumMapModal
+                open={modalOpen}
+                onClose={() => setModalOpen(false)}
+                subjects={subjects}
+                initialStatuses={userSubjects}
+                onSave={handleSaveMapEdit}
+            />
         </div>
     );
 }
