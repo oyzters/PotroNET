@@ -1,5 +1,5 @@
 import type { VercelRequest } from '@vercel/node';
-import { createSupabaseClient, supabaseAdmin } from './supabase';
+import { createSupabaseClient, supabaseAdmin } from './supabase.js';
 
 export interface AuthUser {
     id: string;
