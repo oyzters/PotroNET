@@ -108,10 +108,10 @@ export function LandingPage() {
                             Exclusivo para estudiantes ITSON
                         </div>
                         <h1 className="mb-6 text-4xl font-black leading-tight tracking-tight md:text-6xl">
-                            La red social
+                            Únete a la nueva red social
                             <br />
                             <span className="bg-gradient-to-r from-primary to-[oklch(0.75_0.14_233)] bg-clip-text text-transparent">
-                                académica del Potro
+                                exclusiva para Potros
                             </span>
                         </h1>
                         <p className="mb-10 text-lg text-muted-foreground md:text-xl">
@@ -271,7 +271,7 @@ export function LandingPage() {
                             </span>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            © {new Date().getFullYear()} PotroNET – Hecho por Potros, para Potros 🐴
+                            © {new Date().getFullYear()} PotroNET – Hecho por Potros, para Potros
                         </p>
                     </div>
                 </div>
