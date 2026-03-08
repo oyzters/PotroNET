@@ -97,26 +97,30 @@ export async function publicationById(req: VercelRequest, res: VercelResponse, i
     return res.status(405).json({ error: 'Method not allowed' });
 }
 
-// POST /publications/like
-export async function publicationLike(req: VercelRequest, res: VercelResponse) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+// POST|DELETE /publications/:id/likes
+export async function publicationLike(req: VercelRequest, res: VercelResponse, id: string) {
+    if (req.method !== 'POST' && req.method !== 'DELETE') return res.status(405).json({ error: 'Method not allowed' });
 
     const user = await getAuthUser(req);
     if (!user) return res.status(401).json({ error: 'No autenticado' });
 
-    const { publication_id } = req.body;
+    const publication_id = id;
     if (!publication_id) return res.status(400).json({ error: 'publication_id is required' });
 
     try {
         const supabase = createSupabaseClient(req.headers.authorization);
-        const { data: existing } = await supabase
-            .from('publication_likes').select('*').eq('user_id', user.id).eq('publication_id', publication_id).single();
 
-        if (existing) {
+        if (req.method === 'DELETE') {
             await supabase.from('publication_likes').delete().eq('user_id', user.id).eq('publication_id', publication_id);
             return res.status(200).json({ liked: false });
         } else {
-            await supabase.from('publication_likes').insert({ user_id: user.id, publication_id });
+            // POST to like
+            const { data: existing } = await supabase
+                .from('publication_likes').select('*').eq('user_id', user.id).eq('publication_id', publication_id).single();
+
+            if (!existing) {
+                await supabase.from('publication_likes').insert({ user_id: user.id, publication_id });
+            }
             return res.status(200).json({ liked: true });
         }
     } catch { return res.status(500).json({ error: 'Error interno del servidor' }); }

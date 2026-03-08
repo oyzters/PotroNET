@@ -68,7 +68,7 @@ const routes: Route[] = [
     { pattern: ['profiles', ':id'], handler: profileById },
 
     // Publications (specific routes before parameterized)
-    { pattern: ['publications', 'like'], handler: publicationLike },
+    { pattern: ['publications', ':id', 'likes'], handler: publicationLike },
     { pattern: ['publications'], handler: publicationsIndex },
     { pattern: ['publications', ':id'], handler: publicationById },
 
