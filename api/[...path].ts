@@ -129,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (Array.isArray(req.query.path)) {
         pathSegments = req.query.path;
     } else if (typeof req.query.path === 'string') {
-        pathSegments = [req.query.path];
+        pathSegments = req.query.path.split('/').filter(Boolean);
     } else if (req.url) {
         // Fallback to parsing req.url if req.query.path is missing
         pathSegments = req.url.split('?')[0].replace(/^\/api\/?/, '').split('/').filter(Boolean);
