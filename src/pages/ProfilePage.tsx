@@ -43,7 +43,7 @@ function timeAgo(dateStr: string) {
     return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function PostCard({ post, currentUserId, token }: { post: Publication; currentUserId?: string; token?: string }) {
+function PostCard({ post, token }: { post: Publication; token?: string }) {
     const [liked, setLiked] = useState(false);
     const [likes, setLikes] = useState(post.likes_count || 0);
     const [showComments, setShowComments] = useState(false);
@@ -457,7 +457,7 @@ export function ProfilePage() {
                     ) : (
                         <>
                             {posts.map(post => (
-                                <PostCard key={post.id} post={post} currentUserId={user?.id} token={session?.access_token} />
+                                <PostCard key={post.id} post={post} token={session?.access_token} />
                             ))}
                             {postsTotalPages > 1 && (
                                 <div className="flex justify-center gap-2 pt-2">
