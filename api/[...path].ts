@@ -27,7 +27,7 @@ function health(_req: VercelRequest, res: VercelResponse) {
 
 // Route definitions: [pattern, handler]
 // Patterns with :param are matched dynamically
-type Handler = (req: VercelRequest, res: VercelResponse, ...args: string[]) => Promise<void> | void;
+type Handler = (req: VercelRequest, res: VercelResponse, ...args: string[]) => Promise<VercelResponse | void> | VercelResponse | void;
 
 interface Route {
     pattern: string[];
