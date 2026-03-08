@@ -131,8 +131,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else if (typeof req.query.path === 'string') {
         pathSegments = [req.query.path];
     } else if (req.url) {
-        // Fallback to parsing req.url if req.query.path is missing (happens on some Vercel deployments)
+        // Fallback to parsing req.url if req.query.path is missing
         pathSegments = req.url.split('?')[0].replace(/^\/api\/?/, '').split('/').filter(Boolean);
+    }
+
+    // Always ensure query parameters from req.url are explicitly merged into req.query
+    // Vercel rewrites sometimes discard the native req.query when using [...path]
+    if (req.url && req.url.includes('?')) {
+        try {
+            const urlObj = new URL(`http://localhost${req.url}`);
+            urlObj.searchParams.forEach((val, key) => {
+                if (key !== 'path' && req.query[key] === undefined) {
+                    req.query[key] = val;
+                }
+            });
+        } catch { /* ignore fallback errors */ }
     }
 
     // Find matching route
