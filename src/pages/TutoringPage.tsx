@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
     BookOpenIcon, SearchIcon, PlusIcon, UserIcon, StarIcon, CalendarIcon, XIcon,
 } from 'lucide-react';
-import { WeeklyCalendar, type SelectedSlot } from '@/components/tutoring/WeeklyCalendar';
+import { WeeklyCalendar, type TimeBlock } from '@/components/tutoring/WeeklyCalendar';
 
 interface Tutor { id: string; full_name: string; avatar_url: string; email: string; reputation: number; career: { id: string; name: string } | null }
 interface Offer {
@@ -20,13 +20,31 @@ interface OffersResponse {
     pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
-// Generate time slots every 30 min from 07:00 to 21:00
-const TIME_SLOTS: string[] = [];
-for (let h = 7; h <= 21; h++) {
-    TIME_SLOTS.push(`${String(h).padStart(2, '0')}:00`);
-    if (h < 21) TIME_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
+/** Display a stored schedule string (legacy or JSON) */
+function formatSchedule(schedule: string): string {
+    if (!schedule) return '';
+    try {
+        const arr = JSON.parse(schedule);
+        if (Array.isArray(arr) && arr.length > 0) {
+            if (typeof arr[0] === 'object' && arr[0].start) {
+                if (arr.length === 1) {
+                    const d = new Date(arr[0].date + 'T12:00:00');
+                    return `${d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })} · ${arr[0].start}–${arr[0].end}`;
+                }
+                return `${arr.length} sesiones`;
+            }
+            if (typeof arr[0] === 'string') {
+                return arr.length === 1 ? arr[0] : `${arr.length} sesiones`;
+            }
+        }
+    } catch { /* not JSON */ }
+    const m = schedule.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})/);
+    if (m) {
+        const d = new Date(`${m[1]}T${m[2]}`);
+        return d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + m[2];
+    }
+    return schedule;
 }
-
 
 export function TutoringPage() {
     const { session } = useAuth();
@@ -36,18 +54,13 @@ export function TutoringPage() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [showCreate, setShowCreate] = useState(false);
-    const [showRequestTutor, setShowRequestTutor] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     // Create offer form
     const [newSubject, setNewSubject] = useState('');
     const [newDescription, setNewDescription] = useState('');
-    const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
-    const [slotError, setSlotError] = useState('');
-
-    // Request tutor form
-    const [reqSubject, setReqSubject] = useState('');
-    const [reqDescription, setReqDescription] = useState('');
+    const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
+    const [blockError, setBlockError] = useState('');
 
     const fetchOffers = useCallback(async () => {
         if (!session?.access_token) return;
@@ -63,20 +76,16 @@ export function TutoringPage() {
 
     useEffect(() => { fetchOffers(); }, [fetchOffers]);
 
-    const validateForm = () => {
-        if (selectedSlots.length === 0) {
-            setSlotError('Selecciona al menos una franja horaria en el calendario');
-            return false;
-        }
-        setSlotError('');
-        return true;
-    };
-
     const handleCreateOffer = async () => {
         if (!session?.access_token || !newSubject.trim()) return;
-        if (!validateForm()) return;
-        // Serialize slots as JSON for storage in schedule field
-        const schedule = JSON.stringify(selectedSlots.map(s => `${s.date} ${s.time}`));
+        if (timeBlocks.length === 0) {
+            setBlockError('Crea al menos un bloque horario en el calendario.');
+            return;
+        }
+        setBlockError('');
+        const schedule = JSON.stringify(
+            timeBlocks.map(b => ({ date: b.date, start: b.startTime, end: b.endTime }))
+        );
         setSubmitting(true);
         try {
             await api('/tutoring', {
@@ -84,89 +93,65 @@ export function TutoringPage() {
                 body: JSON.stringify({ subject_name: newSubject, description: newDescription, schedule }),
             });
             setShowCreate(false);
-            setNewSubject(''); setNewDescription(''); setSelectedSlots([]);
+            setNewSubject(''); setNewDescription(''); setTimeBlocks([]);
             fetchOffers();
         } catch { /* silent */ } finally { setSubmitting(false); }
     };
 
-    const handleRequestTutor = async () => {
-        if (!session?.access_token || !reqSubject.trim()) return;
-        setSubmitting(true);
-        try {
-            await api('/tutoring/requests', {
-                method: 'POST', token: session.access_token,
-                body: JSON.stringify({ subject_name: reqSubject, description: reqDescription }),
-            });
-            setShowRequestTutor(false); setReqSubject(''); setReqDescription('');
-        } catch { /* silent */ } finally { setSubmitting(false); }
-    };
-
-    function formatSchedule(schedule: string) {
-        if (!schedule) return '';
-        // If it looks like a ISO date+time, format it
-        const match = schedule.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})/);
-        if (match) {
-            const d = new Date(`${match[1]}T${match[2]}`);
-            return d.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' · ' + match[2];
-        }
-        return schedule;
-    }
-
     return (
         <div className="space-y-6">
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold">Tutorías</h1>
                     <p className="text-sm text-muted-foreground">Encuentra y ofrece tutorías académicas</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => { setShowRequestTutor(!showRequestTutor); setShowCreate(false); }}>
-                        Solicitar ser Tutor
-                    </Button>
-                    <Button onClick={() => { setShowCreate(!showCreate); setShowRequestTutor(false); }}>
-                        {showCreate ? <XIcon className="mr-1 h-4 w-4" /> : <PlusIcon className="mr-1 h-4 w-4" />}
-                        {showCreate ? 'Cancelar' : 'Ofrecer Tutoría'}
-                    </Button>
-                </div>
+                <Button onClick={() => { setShowCreate(!showCreate); }}
+                    variant={showCreate ? 'secondary' : 'default'}>
+                    {showCreate
+                        ? <><XIcon className="mr-1 h-4 w-4" /> Cancelar</>
+                        : <><PlusIcon className="mr-1 h-4 w-4" /> Ofrecer Tutoría</>
+                    }
+                </Button>
             </div>
-
-            {/* Request to be tutor */}
-            {showRequestTutor && (
-                <div className="rounded-xl border border-primary/30 bg-card/50 p-5 space-y-3">
-                    <h3 className="font-semibold">Solicitar ser tutor</h3>
-                    <Input placeholder="Materia que deseas enseñar" value={reqSubject} onChange={e => setReqSubject(e.target.value)} />
-                    <Textarea placeholder="¿Por qué quieres ser tutor?" value={reqDescription} onChange={e => setReqDescription(e.target.value)} maxLength={300} className="resize-none" />
-                    <Button onClick={handleRequestTutor} disabled={submitting || !reqSubject.trim()}>
-                        {submitting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : 'Enviar Solicitud'}
-                    </Button>
-                </div>
-            )}
 
             {/* Create offer form */}
             {showCreate && (
                 <div className="rounded-xl border border-primary/30 bg-card/50 p-5 space-y-4">
-                    <h3 className="font-semibold">Ofrecer tutoría</h3>
-                    <div>
-                        <Input placeholder="Materia *" value={newSubject} onChange={e => setNewSubject(e.target.value)} />
-                    </div>
-                    <div>
-                        <Textarea placeholder="Descripción de la tutoría" value={newDescription} onChange={e => setNewDescription(e.target.value)} maxLength={300} className="resize-none" />
-                    </div>
+                    <h3 className="font-semibold">Nueva tutoría</h3>
+
+                    <Input
+                        placeholder="Materia *"
+                        value={newSubject}
+                        onChange={e => setNewSubject(e.target.value)}
+                    />
+                    <Textarea
+                        placeholder="Descripción de la tutoría (opcional)"
+                        value={newDescription}
+                        onChange={e => setNewDescription(e.target.value)}
+                        maxLength={300}
+                        className="resize-none"
+                    />
 
                     {/* Weekly Calendar */}
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                         <label className="flex items-center gap-1.5 text-sm font-medium">
-                            <CalendarIcon className="h-4 w-4" /> Selecciona días y horas de sesión *
+                            <CalendarIcon className="h-4 w-4" />
+                            Horario de sesiones *
                         </label>
                         <WeeklyCalendar
-                            selectedSlots={selectedSlots}
-                            onChange={slots => { setSelectedSlots(slots); setSlotError(''); }}
+                            blocks={timeBlocks}
+                            onChange={blocks => { setTimeBlocks(blocks); setBlockError(''); }}
                         />
-                        {slotError && <p className="text-xs text-red-500">{slotError}</p>}
+                        {blockError && <p className="text-xs text-destructive">{blockError}</p>}
                     </div>
 
-                    <Button className="w-full" onClick={handleCreateOffer} disabled={submitting || !newSubject.trim()}>
-                        {submitting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : 'Publicar Tutoría'}
+                    <Button className="w-full" onClick={handleCreateOffer}
+                        disabled={submitting || !newSubject.trim()}>
+                        {submitting
+                            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            : 'Publicar Tutoría'
+                        }
                     </Button>
                 </div>
             )}
@@ -174,10 +159,15 @@ export function TutoringPage() {
             {/* Search */}
             <div className="relative max-w-md">
                 <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Buscar por materia..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="pl-10" />
+                <Input
+                    placeholder="Buscar por materia..."
+                    value={search}
+                    onChange={e => { setSearch(e.target.value); setPage(1); }}
+                    className="pl-10"
+                />
             </div>
 
-            {/* Offers - full-width 1 per row */}
+            {/* Offers list */}
             {loading ? (
                 <div className="flex justify-center py-12">
                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -186,12 +176,14 @@ export function TutoringPage() {
                 <div className="rounded-2xl border border-dashed border-border py-16 text-center">
                     <BookOpenIcon className="mx-auto h-12 w-12 text-muted-foreground/30" />
                     <p className="mt-4 text-muted-foreground">No hay tutorías disponibles</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Sé el primero en ofrecer una tutoría</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Sé el primero en ofrecer una</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-4">
                     {offers.map(offer => (
-                        <div key={offer.id} className="group flex w-full items-start gap-5 rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+                        <div key={offer.id}
+                            className="group flex w-full items-start gap-5 rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+
                             {/* Tutor avatar */}
                             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 overflow-hidden">
                                 {offer.tutor.avatar_url
@@ -200,7 +192,7 @@ export function TutoringPage() {
                                 }
                             </div>
 
-                            {/* Main info */}
+                            {/* Info */}
                             <div className="flex-1 min-w-0 space-y-2">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <Badge variant="default" className="text-sm px-3 py-0.5">{offer.subject_name}</Badge>
@@ -211,7 +203,6 @@ export function TutoringPage() {
                                     <p className="text-sm text-muted-foreground leading-relaxed">{offer.description}</p>
                                 )}
 
-                                {/* Tutor info */}
                                 <div className="flex flex-wrap items-center gap-4 pt-1">
                                     <div className="flex items-center gap-2">
                                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold">
@@ -227,15 +218,17 @@ export function TutoringPage() {
                                 </div>
                             </div>
 
-                            {/* Schedule */}
+                            {/* Schedule badge */}
                             {offer.schedule && (
-                                <div className="shrink-0 text-right">
+                                <div className="shrink-0">
                                     <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs">
                                         <div className="flex items-center gap-1 text-muted-foreground">
                                             <CalendarIcon className="h-3 w-3" />
                                             <span>Sesión</span>
                                         </div>
-                                        <p className="mt-1 font-medium text-foreground text-sm leading-tight">{formatSchedule(offer.schedule)}</p>
+                                        <p className="mt-1 font-medium text-foreground text-sm">
+                                            {formatSchedule(offer.schedule)}
+                                        </p>
                                     </div>
                                 </div>
                             )}
@@ -246,9 +239,9 @@ export function TutoringPage() {
 
             {totalPages > 1 && (
                 <div className="flex justify-center gap-2 pt-4">
-                    <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button>
+                    <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Anterior</Button>
                     <span className="flex items-center text-sm text-muted-foreground">{page} / {totalPages}</span>
-                    <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button>
+                    <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Siguiente</Button>
                 </div>
             )}
         </div>
