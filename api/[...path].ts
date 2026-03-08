@@ -1,21 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { cors } from '../server/lib/cors';
+import { cors } from '../server/lib/cors.js';
 
 // Route imports
-import { login, register, me } from '../server/routes/auth';
-import { listCareers } from '../server/routes/careers';
-import { friendsIndex, friendById } from '../server/routes/friends';
-import { messagesIndex, messagesByUser } from '../server/routes/messages';
-import { notificationsIndex } from '../server/routes/notifications';
-import { professorsList, professorById, professorRequests, professorReviews } from '../server/routes/professors';
-import { profilesList, profileById } from '../server/routes/profiles';
-import { publicationsIndex, publicationById, publicationLike } from '../server/routes/publications';
-import { reportsIndex } from '../server/routes/reports';
-import { resourcesIndex } from '../server/routes/resources';
-import { searchAll } from '../server/routes/search';
-import { subjectsIndex, subjectsUser } from '../server/routes/subjects';
-import { tutoringIndex, tutoringRequests } from '../server/routes/tutoring';
-import { adminStats, adminUsers, adminReports, adminPublications, adminProfessorRequests, adminNotifications } from '../server/routes/admin';
+import { login, register, me } from '../server/routes/auth.js';
+import { listCareers } from '../server/routes/careers.js';
+import { friendsIndex, friendById } from '../server/routes/friends.js';
+import { messagesIndex, messagesByUser } from '../server/routes/messages.js';
+import { notificationsIndex } from '../server/routes/notifications.js';
+import { professorsList, professorById, professorRequests, professorReviews } from '../server/routes/professors.js';
+import { profilesList, profileById } from '../server/routes/profiles.js';
+import { publicationsIndex, publicationById, publicationLike } from '../server/routes/publications.js';
+import { reportsIndex } from '../server/routes/reports.js';
+import { resourcesIndex } from '../server/routes/resources.js';
+import { searchAll } from '../server/routes/search.js';
+import { subjectsIndex, subjectsUser } from '../server/routes/subjects.js';
+import { tutoringIndex, tutoringRequests } from '../server/routes/tutoring.js';
+import { adminStats, adminUsers, adminReports, adminPublications, adminProfessorRequests, adminNotifications } from '../server/routes/admin.js';
 
 // Health check handler
 function health(_req: VercelRequest, res: VercelResponse) {
@@ -125,7 +125,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (cors(req, res)) return;
 
     // Extract path segments from the catch-all query
-    const pathSegments = (req.query.path as string[]) || [];
+    const rawPath = req.query.path;
+    const pathSegments = Array.isArray(rawPath) ? rawPath : (typeof rawPath === 'string' ? [rawPath] : []);
 
     // Find matching route
     const matched = matchRoute(pathSegments);

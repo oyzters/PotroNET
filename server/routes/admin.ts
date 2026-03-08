@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthUser, requireAdmin, requireSudo } from '../lib/auth';
-import { supabaseAdmin } from '../lib/supabase';
+import { getAuthUser, requireAdmin, requireSudo } from '../lib/auth.js';
+import { supabaseAdmin } from '../lib/supabase.js';
 
 // GET /admin/stats
 export async function adminStats(req: VercelRequest, res: VercelResponse) {

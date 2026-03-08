@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthUser } from '../lib/auth';
-import { supabaseAdmin, createSupabaseClient } from '../lib/supabase';
+import { getAuthUser } from '../lib/auth.js';
+import { supabaseAdmin, createSupabaseClient } from '../lib/supabase.js';
 
 // GET /profiles
 export async function profilesList(req: VercelRequest, res: VercelResponse) {

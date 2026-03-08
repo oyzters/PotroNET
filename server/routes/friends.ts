@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthUser } from '../lib/auth';
-import { createSupabaseClient, supabaseAdmin } from '../lib/supabase';
+import { getAuthUser } from '../lib/auth.js';
+import { createSupabaseClient, supabaseAdmin } from '../lib/supabase.js';
 
 // GET|POST /friends
 export async function friendsIndex(req: VercelRequest, res: VercelResponse) {

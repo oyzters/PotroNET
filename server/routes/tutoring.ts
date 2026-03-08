@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthUser } from '../lib/auth';
-import { createSupabaseClient } from '../lib/supabase';
+import { getAuthUser } from '../lib/auth.js';
+import { createSupabaseClient } from '../lib/supabase.js';
 
 // GET|POST /tutoring
 export async function tutoringIndex(req: VercelRequest, res: VercelResponse) {

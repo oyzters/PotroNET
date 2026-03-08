@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createSupabaseClient } from '../lib/supabase';
+import { createSupabaseClient } from '../lib/supabase.js';
 
 // GET /careers
 export async function listCareers(req: VercelRequest, res: VercelResponse) {
