@@ -6,6 +6,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { FeedPage } from '@/pages/FeedPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { TermsPage } from '@/pages/TermsPage';
 import { SearchPage } from '@/pages/SearchPage';
 import { ProfessorsPage } from '@/pages/ProfessorsPage';
 import { ProfessorDetailPage } from '@/pages/ProfessorDetailPage';
@@ -82,6 +83,7 @@ export function App() {
                         <Route path="/messages" element={<ProtectedPage><MessagesPage /></ProtectedPage>} />
                         <Route path="/messages/:userId" element={<ProtectedPage><MessagesPage /></ProtectedPage>} />
                         <Route path="/notifications" element={<ProtectedPage><NotificationsPage /></ProtectedPage>} />
+                        <Route path="/terms" element={<TermsPage />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </AuthProvider>

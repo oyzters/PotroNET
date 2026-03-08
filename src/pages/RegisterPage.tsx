@@ -20,6 +20,7 @@ export function RegisterPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
 
     const emailValid = email.toLowerCase().endsWith(ALLOWED_DOMAIN);
 
@@ -40,6 +41,11 @@ export function RegisterPage() {
 
         if (password !== confirmPassword) {
             setError('Las contraseñas no coinciden');
+            return;
+        }
+
+        if (!acceptedTerms) {
+            setError('Debes aceptar los Términos y Condiciones para continuar');
             return;
         }
 
@@ -159,7 +165,29 @@ export function RegisterPage() {
                                             required
                                         />
                                     </Field>
-                                    <Button type="submit" className="w-full" disabled={loading || !emailValid}>
+                                    {/* T&C Checkbox */}
+                                    <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                                        <input
+                                            id="reg-terms"
+                                            type="checkbox"
+                                            checked={acceptedTerms}
+                                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                            className="mt-0.5 h-4 w-4 shrink-0 accent-primary cursor-pointer"
+                                        />
+                                        <label htmlFor="reg-terms" className="cursor-pointer text-xs leading-relaxed text-muted-foreground">
+                                            He leído y acepto los{' '}
+                                            <Link
+                                                to="/terms"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+                                            >
+                                                Términos y Condiciones
+                                            </Link>
+                                            {' '}y el Aviso de Privacidad de PotroNET.
+                                        </label>
+                                    </div>
+                                    <Button type="submit" className="w-full" disabled={loading || !emailValid || !acceptedTerms}>
                                         {loading ? (
                                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                                         ) : (
