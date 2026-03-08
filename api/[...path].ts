@@ -125,8 +125,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (cors(req, res)) return;
 
     // Extract path segments from the catch-all query
-    const rawPath = req.query.path;
-    const pathSegments = Array.isArray(rawPath) ? rawPath : (typeof rawPath === 'string' ? [rawPath] : []);
+    let pathSegments: string[] = [];
+    if (Array.isArray(req.query.path)) {
+        pathSegments = req.query.path;
+    } else if (typeof req.query.path === 'string') {
+        pathSegments = [req.query.path];
+    } else if (req.url) {
+        // Fallback to parsing req.url if req.query.path is missing (happens on some Vercel deployments)
+        pathSegments = req.url.split('?')[0].replace(/^\/api\/?/, '').split('/').filter(Boolean);
+    }
 
     // Find matching route
     const matched = matchRoute(pathSegments);
