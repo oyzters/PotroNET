@@ -24,10 +24,20 @@ export function MessagesPage() {
     const [chatUser, setChatUser] = useState<ConversationUser | null>(null);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
+    const [messagesLoading, setMessagesLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    const activeUserId = userId;
+    // Refs para evitar stale closures y race conditions
+    const activeUserIdRef = useRef<string | null>(null);
+    const conversationsRef = useRef<Conversation[]>([]);
+
+    const activeUserId = userId ?? null;
+
+    // Mantener ref de conversaciones sincronizada sin recrear fetchMessages
+    useEffect(() => {
+        conversationsRef.current = conversations;
+    }, [conversations]);
 
     const fetchConversations = useCallback(async () => {
         if (!session?.access_token) return;
@@ -40,19 +50,34 @@ export function MessagesPage() {
 
     const fetchMessages = useCallback(async (targetId: string) => {
         if (!session?.access_token) return;
+        setMessagesLoading(true);
         try {
             const data = await api<{ messages: Message[] }>(`/messages/${targetId}`, { token: session.access_token });
+
+            // Ignorar respuesta si el usuario ya cambió de chat (race condition)
+            if (activeUserIdRef.current !== targetId) return;
+
             setMessages(data.messages);
-            const conv = conversations.find(c => c.user.id === targetId);
+
+            const conv = conversationsRef.current.find(c => c.user.id === targetId);
             if (conv) setChatUser(conv.user);
-        } catch { /* silent */ }
-    }, [session?.access_token, conversations]);
+        } catch { /* silent */ } finally {
+            if (activeUserIdRef.current === targetId) setMessagesLoading(false);
+        }
+    }, [session?.access_token]); // No depende de conversations — usa el ref
 
     useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
     useEffect(() => {
-        if (activeUserId) fetchMessages(activeUserId);
-    }, [activeUserId, fetchMessages]);
+        // Actualizar ref y limpiar estado ANTES del fetch para no mostrar mensajes del chat anterior
+        activeUserIdRef.current = activeUserId;
+
+        if (activeUserId) {
+            setMessages([]);
+            setChatUser(null);
+            fetchMessages(activeUserId);
+        }
+    }, [activeUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -104,7 +129,7 @@ export function MessagesPage() {
         const content = newMessage.trim();
         setNewMessage('');
 
-        // Optimistic update: agregar el mensaje inmediatamente sin esperar al servidor
+        // Optimistic update
         const optimisticMsg: Message = {
             id: crypto.randomUUID(),
             sender_id: user.id,
@@ -135,19 +160,44 @@ export function MessagesPage() {
                 {/* Header */}
                 <div className="flex items-center gap-3 border-b border-border pb-4">
                     <Link to="/messages"><ArrowLeftIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" /></Link>
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                        {chatUser?.avatar_url ? <img src={chatUser.avatar_url} alt="" className="h-full w-full rounded-xl object-cover" /> : <UserIcon className="h-5 w-5 text-primary" />}
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                        {chatUser?.avatar_url
+                            ? <img src={chatUser.avatar_url} alt="" className="h-full w-full rounded-xl object-cover" />
+                            : <UserIcon className="h-5 w-5 text-primary" />}
                     </div>
                     <div>
-                        <p className="font-semibold">{chatUser?.full_name || 'Cargando...'}</p>
-                        <p className="text-xs text-muted-foreground">{chatUser?.email}</p>
+                        {chatUser ? (
+                            <>
+                                <p className="font-semibold">{chatUser.full_name}</p>
+                                <p className="text-xs text-muted-foreground">{chatUser.email}</p>
+                            </>
+                        ) : (
+                            <>
+                                <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                                <div className="mt-1 h-3 w-44 animate-pulse rounded bg-muted" />
+                            </>
+                        )}
                     </div>
                 </div>
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto py-4 space-y-3">
-                    {messages.length === 0 ? (
-                        <div className="flex h-full items-center justify-center"><p className="text-muted-foreground">Envía el primer mensaje</p></div>
+                    {messagesLoading ? (
+                        // Skeleton de mensajes mientras carga
+                        <div className="space-y-3 px-1">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                                    <div
+                                        className="h-9 animate-pulse rounded-2xl bg-muted"
+                                        style={{ width: `${40 + (i * 13) % 35}%` }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ) : messages.length === 0 ? (
+                        <div className="flex h-full items-center justify-center">
+                            <p className="text-muted-foreground">Envía el primer mensaje</p>
+                        </div>
                     ) : messages.map(msg => (
                         <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${msg.sender_id === user?.id ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted rounded-bl-md'}`}>
@@ -200,8 +250,10 @@ export function MessagesPage() {
                         <Link to={`/messages/${conv.user.id}`} key={conv.user.id}>
                             <Card className="transition-all hover:border-primary/30">
                                 <CardContent className="flex items-center gap-4 py-4">
-                                    <div className="relative h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                                        {conv.user.avatar_url ? <img src={conv.user.avatar_url} alt="" className="h-full w-full rounded-xl object-cover" /> : <UserIcon className="h-6 w-6 text-primary" />}
+                                    <div className="relative h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                                        {conv.user.avatar_url
+                                            ? <img src={conv.user.avatar_url} alt="" className="h-full w-full rounded-xl object-cover" />
+                                            : <UserIcon className="h-6 w-6 text-primary" />}
                                         {conv.unread > 0 && (
                                             <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">{conv.unread}</div>
                                         )}
