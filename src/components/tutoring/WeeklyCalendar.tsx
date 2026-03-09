@@ -194,7 +194,8 @@ export function WeeklyCalendar({ blocks, onChange, minDate }: WeeklyCalendarProp
             </div>
 
             {/* ── Calendar grid ── */}
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                <div className="min-w-[560px]">
                 {/* Day headers */}
                 <div className="flex border-b border-border bg-muted/30">
                     <div className="w-14 shrink-0 border-r border-border" />
@@ -293,6 +294,7 @@ export function WeeklyCalendar({ blocks, onChange, minDate }: WeeklyCalendarProp
                         })}
                     </div>
                 </div>
+                </div>{/* min-w wrapper */}
             </div>
 
             {/* ── Hint ── */}

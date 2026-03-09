@@ -14,7 +14,7 @@ export function RegisterPage() {
     const { signUp } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [fullName, setFullName] = useState('');
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
@@ -22,15 +22,16 @@ export function RegisterPage() {
     const [loading, setLoading] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-    const emailValid = email.toLowerCase().endsWith(ALLOWED_DOMAIN);
+    const email = username.trim().toLowerCase() + ALLOWED_DOMAIN;
+    const usernameValid = username.trim().length > 0;
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
 
-        if (!emailValid) {
-            setError(`Solo se permiten correos con dominio ${ALLOWED_DOMAIN}`);
+        if (!usernameValid) {
+            setError('Ingresa tu usuario institucional');
             return;
         }
 
@@ -122,23 +123,24 @@ export function RegisterPage() {
                                     </Field>
                                     <Field>
                                         <FieldLabel htmlFor="reg-email">Correo institucional</FieldLabel>
-                                        <Input
-                                            id="reg-email"
-                                            type="email"
-                                            placeholder="tu.nombre@potros.itson.edu.mx"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            required
-                                        />
-                                        {email && !emailValid && (
-                                            <p className="mt-1 text-xs text-destructive">
-                                                Solo se permiten correos {ALLOWED_DOMAIN}
-                                            </p>
-                                        )}
-                                        {email && emailValid && (
+                                        <div className="flex items-center overflow-hidden rounded-lg border border-input focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                                            <input
+                                                id="reg-email"
+                                                type="text"
+                                                placeholder="sebastian.escalante252321"
+                                                value={username}
+                                                onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
+                                                required
+                                                className="min-w-0 flex-1 bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+                                            />
+                                            <span className="shrink-0 select-none border-l border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+                                                {ALLOWED_DOMAIN}
+                                            </span>
+                                        </div>
+                                        {username && (
                                             <p className="mt-1 flex items-center gap-1 text-xs text-green-600">
                                                 <CheckCircleIcon className="h-3 w-3" />
-                                                Correo institucional válido
+                                                {email}
                                             </p>
                                         )}
                                     </Field>
@@ -187,7 +189,7 @@ export function RegisterPage() {
                                             {' '}y el Aviso de Privacidad de PotroNET.
                                         </label>
                                     </div>
-                                    <Button type="submit" className="w-full" disabled={loading || !emailValid || !acceptedTerms}>
+                                    <Button type="submit" className="w-full" disabled={loading || !usernameValid || !acceptedTerms}>
                                         {loading ? (
                                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                                         ) : (
