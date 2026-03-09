@@ -189,6 +189,7 @@ export function ProfilePage() {
     const isOwnProfile = user?.id === id;
     const [followStatus, setFollowStatus] = useState<'none' | 'pending' | 'friends'>('none');
     const [followLoading, setFollowLoading] = useState(false);
+    const [followCheckLoading, setFollowCheckLoading] = useState(true);
 
     // Fetch profile
     useEffect(() => {
@@ -230,8 +231,12 @@ export function ProfilePage() {
 
     // Friend status
     useEffect(() => {
-        if (isOwnProfile || !session?.access_token || !id) return;
+        if (isOwnProfile || !session?.access_token || !id) {
+            setFollowCheckLoading(false);
+            return;
+        }
         const check = async () => {
+            setFollowCheckLoading(true);
             try {
                 const data = await api<{ friends: Array<{ status: string; receiver_id: string; requester_id: string }> }>(
                     '/friends', { token: session.access_token }
@@ -240,7 +245,7 @@ export function ProfilePage() {
                 if (!rel) setFollowStatus('none');
                 else if (rel.status === 'accepted') setFollowStatus('friends');
                 else setFollowStatus('pending');
-            } catch { /* silent */ }
+            } catch { /* silent */ } finally { setFollowCheckLoading(false); }
         };
         check();
     }, [isOwnProfile, id, session?.access_token]);
@@ -320,10 +325,12 @@ export function ProfilePage() {
                         {!isOwnProfile && (
                             <Button size="sm"
                                 variant={followStatus === 'friends' ? 'secondary' : followStatus === 'pending' ? 'outline' : 'default'}
-                                disabled={followLoading || followStatus !== 'none'}
+                                disabled={followLoading || followCheckLoading || followStatus !== 'none'}
                                 onClick={handleFollow}>
-                                {followLoading && <div className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />}
-                                {followStatus === 'friends' ? '✓ Amigos' : followStatus === 'pending' ? 'Solicitud enviada' : '+ Seguir'}
+                                {(followLoading || followCheckLoading) && (
+                                    <div className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                )}
+                                {followCheckLoading ? 'Cargando...' : followStatus === 'friends' ? '✓ Amigos' : followStatus === 'pending' ? 'Solicitud enviada' : '+ Seguir'}
                             </Button>
                         )}
                     </div>
