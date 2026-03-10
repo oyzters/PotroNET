@@ -24,6 +24,7 @@ interface AuthContextType {
     session: Session | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
+    signInWithGoogle: () => Promise<void>;
     signUp: (email: string, password: string, fullName: string) => Promise<string>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
@@ -74,7 +75,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const signIn = async (email: string, password: string) => {
+        if (!email.endsWith('@potros.itson.edu.mx')) {
+            throw new Error('Solo se permiten correos @potros.itson.edu.mx');
+        }
         const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+    };
+
+    const signInWithGoogle = async () => {
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                queryParams: { hd: 'potros.itson.edu.mx' },
+                redirectTo: window.location.origin + '/feed',
+            },
+        });
         if (error) throw error;
     };
 
@@ -98,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, profile, session, loading, signIn, signUp, signOut, refreshProfile }}>
+        <AuthContext.Provider value={{ user, profile, session, loading, signIn, signInWithGoogle, signUp, signOut, refreshProfile }}>
             {children}
         </AuthContext.Provider>
     );
