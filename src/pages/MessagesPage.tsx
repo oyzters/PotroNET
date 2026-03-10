@@ -163,7 +163,7 @@ export function MessagesPage() {
     // Chat view
     if (activeUserId) {
         return (
-            <div className="flex h-[calc(100dvh-10.5rem)] md:h-[calc(100dvh-11rem)] flex-col">
+            <div className="flex h-[calc(100dvh-13rem)] md:h-[calc(100dvh-11rem)] flex-col">
                 {/* Header */}
                 <div className="flex items-center gap-3 border-b border-border pb-4">
                     <Link to="/messages"><ArrowLeftIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" /></Link>
