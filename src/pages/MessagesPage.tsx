@@ -79,6 +79,14 @@ export function MessagesPage() {
         }
     }, [activeUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Setear chatUser cuando las conversaciones se cargan (resuelve race condition)
+    useEffect(() => {
+        if (activeUserId && !chatUser) {
+            const conv = conversations.find(c => c.user.id === activeUserId);
+            if (conv) setChatUser(conv.user);
+        }
+    }, [conversations, activeUserId, chatUser]);
+
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
