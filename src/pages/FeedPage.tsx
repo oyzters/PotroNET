@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { CreatePost } from '@/components/feed/CreatePost';
@@ -34,38 +34,77 @@ interface PublicationsResponse {
 }
 
 const POPULAR_TAGS = ['ayuda', 'programacion', 'calculo', 'examen', 'tutoria', 'proyectos', 'empleo'];
+const PAGE_SIZE = 10;
 
 export function FeedPage() {
     const { session, user } = useAuth();
     const [publications, setPublications] = useState<Publication[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const sentinelRef = useRef<HTMLDivElement>(null);
 
-    const fetchPublications = useCallback(async () => {
+    const fetchPublications = useCallback(async (pageNum: number, append: boolean) => {
         if (!session?.access_token) return;
-        setLoading(true);
+        if (append) setLoadingMore(true); else setLoading(true);
         try {
-            const params = new URLSearchParams({ page: String(page), limit: '20' });
+            const params = new URLSearchParams({ page: String(pageNum), limit: String(PAGE_SIZE) });
             if (selectedTag) params.set('tag', selectedTag);
 
             const data = await api<PublicationsResponse>(
                 `/publications?${params.toString()}`,
                 { token: session.access_token }
             );
-            setPublications(data.publications);
-            setTotalPages(data.pagination.totalPages);
+
+            if (append) {
+                setPublications(prev => {
+                    const existingIds = new Set(prev.map(p => p.id));
+                    const newPubs = data.publications.filter(p => !existingIds.has(p.id));
+                    return [...prev, ...newPubs];
+                });
+            } else {
+                setPublications(data.publications);
+            }
+            setHasMore(pageNum < data.pagination.totalPages);
         } catch {
             // Error handled silently
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
-    }, [session?.access_token, page, selectedTag]);
+    }, [session?.access_token, selectedTag]);
 
+    // Initial load & tag change
     useEffect(() => {
-        fetchPublications();
+        setPage(1);
+        setHasMore(true);
+        fetchPublications(1, false);
     }, [fetchPublications]);
+
+    // Load more when page increments
+    useEffect(() => {
+        if (page > 1) fetchPublications(page, true);
+    }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Intersection Observer for infinite scroll
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+                    setPage(prev => prev + 1);
+                }
+            },
+            { rootMargin: '200px' }
+        );
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [hasMore, loadingMore, loading]);
 
     const handlePost = async (content: string, tags: string[]) => {
         if (!session?.access_token) return;
@@ -110,9 +149,14 @@ export function FeedPage() {
         }
     };
 
+    const handleRefresh = () => {
+        setPage(1);
+        setHasMore(true);
+        fetchPublications(1, false);
+    };
+
     const handleTagFilter = (tag: string) => {
         setSelectedTag(selectedTag === tag ? null : tag);
-        setPage(1);
     };
 
     return (
@@ -125,7 +169,7 @@ export function FeedPage() {
                         Lo último de la comunidad Potro
                     </p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={fetchPublications}>
+                <Button variant="ghost" size="icon" onClick={handleRefresh}>
                     <RefreshCwIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 </Button>
             </div>
@@ -173,30 +217,17 @@ export function FeedPage() {
                         />
                     ))}
 
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-center gap-2 pt-4">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page === 1}
-                                onClick={() => setPage(page - 1)}
-                            >
-                                Anterior
-                            </Button>
-                            <span className="text-sm text-muted-foreground">
-                                {page} / {totalPages}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page === totalPages}
-                                onClick={() => setPage(page + 1)}
-                            >
-                                Siguiente
-                            </Button>
-                        </div>
-                    )}
+                    {/* Infinite scroll sentinel */}
+                    <div ref={sentinelRef} className="py-4 text-center">
+                        {loadingMore && (
+                            <div className="flex justify-center">
+                                <div className="h-6 w-6 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+                            </div>
+                        )}
+                        {!hasMore && publications.length > PAGE_SIZE && (
+                            <p className="text-sm text-muted-foreground">No hay más publicaciones</p>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
