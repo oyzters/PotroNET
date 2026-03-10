@@ -34,6 +34,13 @@ export function MessagesPage() {
 
     const activeUserId = userId ?? null;
 
+    // Bloquear scroll del body en móvil cuando el chat está activo
+    useEffect(() => {
+        if (!activeUserId) return;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = ''; };
+    }, [activeUserId]);
+
     // Mantener ref de conversaciones sincronizada sin recrear fetchMessages
     useEffect(() => {
         conversationsRef.current = conversations;
@@ -156,7 +163,7 @@ export function MessagesPage() {
     // Chat view
     if (activeUserId) {
         return (
-            <div className="flex h-[calc(100vh-12rem)] flex-col">
+            <div className="flex h-[calc(100dvh-10.5rem)] md:h-[calc(100dvh-11rem)] flex-col">
                 {/* Header */}
                 <div className="flex items-center gap-3 border-b border-border pb-4">
                     <Link to="/messages"><ArrowLeftIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" /></Link>
