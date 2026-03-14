@@ -2,7 +2,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -10,13 +9,9 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { SunIcon, MoonIcon, LogOutIcon, UserIcon, SearchIcon, MenuIcon } from 'lucide-react';
+import { SunIcon, MoonIcon, LogOutIcon, UserIcon } from 'lucide-react';
 
-interface NavbarProps {
-    onToggleSidebar?: () => void;
-}
-
-export function Navbar({ onToggleSidebar }: NavbarProps) {
+export function Navbar() {
     const { profile, signOut } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
@@ -28,42 +23,23 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
 
     return (
         <header className="sticky top-0 z-50 flex h-16 w-full items-center border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
-            <div className="flex w-full items-center gap-4">
-                {/* Left: mobile menu + logo */}
-                <div className="flex min-w-[140px] items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="md:hidden"
-                        onClick={onToggleSidebar}
-                    >
-                        <MenuIcon className="h-5 w-5" />
-                    </Button>
+            <div className="flex w-full items-center justify-between">
+                {/* Left: logo */}
+                <div className="flex items-center gap-2">
                     <Link to="/feed" className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                            <span className="text-sm font-bold text-primary-foreground">P</span>
-                        </div>
+                        <img 
+                            src="/potronet.png" 
+                            alt="PotroNET Logo" 
+                            className="h-10 w-auto object-contain drop-shadow-sm"
+                        />
                         <span className="hidden text-lg font-bold text-foreground sm:block">
                             Potro<span className="text-primary">NET</span>
                         </span>
                     </Link>
                 </div>
 
-                {/* Center: search */}
-                <div className="flex flex-1 justify-center">
-                    <div className="hidden w-full max-w-md md:block">
-                        <div className="relative">
-                            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="Buscar estudiantes, carreras, profesores..."
-                                className="pl-10"
-                            />
-                        </div>
-                    </div>
-                </div>
-
                 {/* Right: actions */}
-                <div className="flex min-w-[80px] items-center justify-end gap-2">
+                <div className="flex items-center gap-2">
                     <Button variant="ghost" size="icon" onClick={toggleTheme}>
                         {theme === 'light' ? (
                             <MoonIcon className="h-5 w-5" />
@@ -91,7 +67,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
                         <DropdownMenuContent align="end" className="w-56">
                             <div className="px-3 py-2">
                                 <p className="text-sm font-medium">{profile?.full_name || 'Usuario'}</p>
-                                <p className="text-xs text-muted-foreground">{profile?.email}</p>
+                                <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
                             </div>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => navigate(`/profile/${profile?.id}`)}>

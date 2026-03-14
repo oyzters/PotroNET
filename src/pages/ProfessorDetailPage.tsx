@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    StarIcon, GraduationCapIcon, ArrowLeftIcon, CheckIcon, XIcon,
+    StarIcon, ArrowLeftIcon, CheckIcon, XIcon,
 } from 'lucide-react';
 
 interface Career { id: string; name: string }
@@ -23,6 +23,11 @@ interface Review {
 
 const QUALITIES = ['explica claramente', 'domina la materia', 'accesible para dudas', 'clases dinámicas', 'puntual', 'justo al evaluar', 'motiva al estudiante', 'material de apoyo'];
 const WEAKNESSES_LIST = ['evalúa muy difícil', 'poca disponibilidad', 'mala organización', 'clases aburridas', 'impuntual', 'injusto al calificar', 'no responde dudas', 'material insuficiente'];
+
+// Function to generate Dicebear avatar
+function getAvatarUrl(name: string) {
+    return `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(name)}&backgroundColor=f8fafc`;
+}
 
 export function ProfessorDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -96,28 +101,56 @@ export function ProfessorDetailPage() {
     if (!professor) return <div className="py-20 text-center"><p className="text-muted-foreground">Profesor no encontrado</p></div>;
 
     return (
-        <div className="space-y-6">
-            <Link to="/professors" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeftIcon className="h-4 w-4" /> Volver</Link>
+        <div className="space-y-6 pb-20 md:pb-0">
+            <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md pt-4 pb-2 px-4 md:px-0 border-b border-border/50">
+                <Link to="/professors" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    <ArrowLeftIcon className="h-4 w-4" /> Volver a Profesores
+                </Link>
+            </div>
 
-            {/* Header */}
-            <Card>
-                <CardContent className="py-6">
-                    <div className="flex items-start gap-4">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10"><GraduationCapIcon className="h-8 w-8 text-primary" /></div>
-                        <div className="flex-1">
-                            <h1 className="text-2xl font-bold">{professor.full_name}</h1>
-                            {professor.department && <p className="text-muted-foreground">{professor.department}</p>}
-                            {professor.career && <Badge variant="secondary" className="mt-1">{professor.career.name}</Badge>}
-                            <div className="mt-3 flex items-center gap-3">
-                                <div className="flex">{[1, 2, 3, 4, 5].map(i => <StarIcon key={i} className={`h-5 w-5 ${i <= Math.round(professor.avg_rating) ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground/30'}`} />)}</div>
-                                <span className="text-xl font-bold">{Number(professor.avg_rating).toFixed(1)}</span>
-                                <span className="text-sm text-muted-foreground">({professor.total_reviews} evaluaciones)</span>
-                            </div>
-                        </div>
-                        <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Evaluar'}</Button>
+            {/* Profile Header */}
+            <div className="flex flex-col items-center text-center px-4 md:px-0 mt-4 md:mt-8">
+                <div className="flex h-24 w-24 shrink-0 overflow-hidden items-center justify-center rounded-full bg-primary/10 border border-primary/20 shadow-xl mb-4">
+                    <img src={getAvatarUrl(professor.full_name)} alt={professor.full_name} className="h-full w-full object-cover mix-blend-multiply" />
+                </div>
+                
+                <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
+                    {professor.full_name}
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">{professor.department || 'Sin departamento'}</p>
+                {professor.career && <Badge variant="secondary" className="mt-2 bg-secondary/60">{professor.career.name}</Badge>}
+
+                {/* Unified Stats */}
+                <div className="flex gap-8 mt-6 w-full justify-center">
+                    <div className="flex flex-col items-center">
+                        <span className="text-2xl font-black text-amber-600 dark:text-amber-500">
+                            {Number(professor.avg_rating).toFixed(1)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mt-1">
+                            Calificación
+                        </span>
                     </div>
-                </CardContent>
-            </Card>
+                    <div className="w-px bg-border"></div>
+                    <div className="flex flex-col items-center">
+                        <span className="text-2xl font-black">
+                            {professor.total_reviews}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mt-1">
+                            Reseñas
+                        </span>
+                    </div>
+                </div>
+
+                <Button 
+                    onClick={() => setShowForm(!showForm)} 
+                    variant={showForm ? 'outline' : 'default'}
+                    className={`mt-8 w-full md:w-auto min-w-[200px] rounded-full h-11 font-semibold text-md transition-all ${
+                        !showForm ? 'shadow-neon-primary' : ''
+                    }`}
+                >
+                    {showForm ? 'Cerrar Formulario' : 'Evaluar Profesor'}
+                </Button>
+            </div>
 
             {/* Review form */}
             {showForm && (
@@ -180,27 +213,40 @@ export function ProfessorDetailPage() {
             </div>
 
             {/* Reviews */}
-            <Card>
-                <CardHeader><CardTitle className="text-base">Evaluaciones ({reviews.length})</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
+            <div className="px-4 md:px-0">
+                <h3 className="text-lg font-bold mb-4">Evaluaciones ({reviews.length})</h3>
+                <div className="space-y-4">
                     {reviews.length === 0 ? (
-                        <p className="py-8 text-center text-muted-foreground">Aún no hay evaluaciones. ¡Sé el primero!</p>
+                        <div className="rounded-2xl border border-dashed border-border py-12 text-center">
+                            <p className="text-muted-foreground text-sm">Aún no hay evaluaciones. ¡Sé el primero!</p>
+                        </div>
                     ) : reviews.map(r => (
-                        <div key={r.id} className="rounded-lg border border-border p-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1">{[1, 2, 3, 4, 5].map(i => <StarIcon key={i} className={`h-4 w-4 ${i <= Math.round(r.overall_rating) ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground/30'}`} />)}</div>
-                                <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString('es-MX')}</span>
+                        <div key={r.id} className="rounded-xl bg-card p-5 border border-border shadow-sm">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                        <span className="text-xs font-bold text-amber-600 dark:text-amber-500">
+                                            {Number(r.overall_rating).toFixed(1)}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs font-medium text-muted-foreground">
+                                        {new Date(r.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                    </span>
+                                </div>
                             </div>
-                            {r.subject_name && <p className="mt-1 text-xs text-primary">Materia: {r.subject_name}</p>}
-                            {r.comment && <p className="mt-2 text-sm">{r.comment}</p>}
-                            <div className="mt-2 flex flex-wrap gap-1">
-                                {r.qualities?.map(q => <Badge key={q} variant="secondary" className="text-emerald-500">{q}</Badge>)}
-                                {r.weaknesses?.map(w => <Badge key={w} variant="secondary" className="text-red-400">{w}</Badge>)}
-                            </div>
+                            {r.subject_name && <p className="text-xs font-semibold text-primary/80 mb-2 uppercase tracking-wide">{r.subject_name}</p>}
+                            {r.comment && <p className="text-sm leading-relaxed mb-4">{r.comment}</p>}
+                            
+                            {(r.qualities?.length > 0 || r.weaknesses?.length > 0) && (
+                                <div className="flex flex-wrap gap-1.5 mt-2 pt-3 border-t border-border/50">
+                                    {r.qualities?.map(q => <Badge key={q} variant="secondary" className="text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 text-[10px] px-2 h-5 border-0">{q}</Badge>)}
+                                    {r.weaknesses?.map(w => <Badge key={w} variant="secondary" className="text-red-400 bg-red-400/10 hover:bg-red-400/20 text-[10px] px-2 h-5 border-0">{w}</Badge>)}
+                                </div>
+                            )}
                         </div>
                     ))}
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     );
 }

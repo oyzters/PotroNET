@@ -12,10 +12,10 @@ interface SuggestedUser {
 }
 
 const FEATURES = [
-    { icon: '🗺️', text: 'Mapa curricular interactivo' },
-    { icon: '🎓', text: 'Evaluaciones anónimas de profesores' },
-    { icon: '📚', text: 'Tutorías entre alumnos' },
-    { icon: '💬', text: 'Mensajes directos' },
+    {text: 'Mapa curricular interactivo' },
+    {text: 'Evaluaciones anónimas de profesores' },
+    {text: 'Tutorías entre alumnos' },
+    {text: 'Mensajes directos' },
 ];
 
 const NEWS = [
@@ -47,7 +47,7 @@ export function RightPanel() {
         <div className="sticky top-20 space-y-4">
             {/* Suggested people */}
             {suggested.length > 0 && (
-                <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+                <div className="rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm p-4">
                     <div className="mb-3 flex items-center gap-2">
                         <UsersIcon className="h-4 w-4 text-primary" />
                         <span className="text-sm font-semibold">Personas sugeridas</span>
@@ -76,7 +76,7 @@ export function RightPanel() {
             )}
 
             {/* Features */}
-            <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+            <div className="rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm p-4">
                 <div className="mb-3 flex items-center gap-2">
                     <ZapIcon className="h-4 w-4 text-primary" />
                     <span className="text-sm font-semibold">Funciones PotroNET</span>
@@ -84,7 +84,6 @@ export function RightPanel() {
                 <div className="space-y-2">
                     {FEATURES.map((f, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{f.icon}</span>
                             <span>{f.text}</span>
                         </div>
                     ))}
@@ -92,7 +91,7 @@ export function RightPanel() {
             </div>
 
             {/* News */}
-            <div className="rounded-xl border border-border/60 bg-card/50 p-4">
+            <div className="rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm p-4">
                 <div className="mb-3 flex items-center gap-2">
                     <TrendingUpIcon className="h-4 w-4 text-primary" />
                     <span className="text-sm font-semibold">Novedades</span>

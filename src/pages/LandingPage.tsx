@@ -58,12 +58,7 @@ export function LandingPage() {
         },
     ];
 
-    const steps = [
-        'Regístrate con tu correo @potros.itson.edu.mx',
-        'Verifica tu cuenta por correo electrónico',
-        'Completa tu perfil académico',
-        'Explora y conecta con otros Potros',
-    ];
+    // steps were removed from here
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -184,41 +179,40 @@ export function LandingPage() {
                 </div>
             </section>
 
-            {/* How it works */}
+            {/* Why PotroNET */}
             <section className="border-t border-border bg-card/50 py-20 md:py-28">
                 <div className="mx-auto max-w-7xl px-4 md:px-8">
                     <div className="mx-auto mb-16 max-w-2xl text-center">
                         <h2 className="mb-4 text-3xl font-black md:text-4xl">
-                            Empieza en minutos
+                            ¿Por qué usar PotroNET?
                         </h2>
                         <p className="text-lg text-muted-foreground">
-                            Registrarte es rápido y solo necesitas tu correo institucional.
+                            Una experiencia diseñada específicamente para estudiantes universitarios, superando a las redes sociales tradicionales.
                         </p>
                     </div>
-                    <div className="mx-auto max-w-lg">
-                        {steps.map((step, i) => (
-                            <div key={i} className="flex gap-4 pb-8 last:pb-0">
-                                <div className="flex flex-col items-center">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                                        {i + 1}
-                                    </div>
-                                    {i < steps.length - 1 && (
-                                        <div className="mt-2 h-full w-px bg-border" />
-                                    )}
-                                </div>
-                                <div className="pt-2">
-                                    <p className="font-medium">{step}</p>
-                                </div>
+                    
+                    <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-background to-card p-8 shadow-sm">
+                            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                <UsersIcon className="h-7 w-7" />
                             </div>
-                        ))}
-                    </div>
-                    <div className="mt-12 text-center">
-                        <Link to="/register">
-                            <Button size="lg" className="h-12 px-8 text-base shadow-lg shadow-primary/25">
-                                Crear mi cuenta
-                                <ArrowRightIcon className="ml-2 h-5 w-5" />
-                            </Button>
-                        </Link>
+                            <h3 className="mb-3 text-xl font-bold">Comunidad Exclusiva</h3>
+                            <p className="text-muted-foreground">Solo usuarios verificados con correo institucional. Sin bots, sin spam, solo estudiantes reales compartiendo sus experiencias.</p>
+                        </div>
+                        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-background to-card p-8 shadow-sm">
+                            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary/10 text-secondary">
+                                <BookOpenIcon className="h-7 w-7" />
+                            </div>
+                            <h3 className="mb-3 text-xl font-bold">Enfoque Académico</h3>
+                            <p className="text-muted-foreground">Nuestra interfaz mobile-first similar a Instagram está adaptada para mostrar desde memes hasta tutorías y mapas curriculares.</p>
+                        </div>
+                        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-background to-card p-8 shadow-sm">
+                            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                <MessageCircleIcon className="h-7 w-7" />
+                            </div>
+                            <h3 className="mb-3 text-xl font-bold">Comunicación Directa</h3>
+                            <p className="text-muted-foreground">Contacta al instante con cualquier estudiante o profesor de la universidad a través de nuestra mensajería en tiempo real.</p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -226,30 +220,30 @@ export function LandingPage() {
             {/* Security */}
             <section className="py-20 md:py-28">
                 <div className="mx-auto max-w-7xl px-4 md:px-8">
-                    <div className="mx-auto max-w-3xl rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-8 md:p-12">
-                        <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
-                            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
-                                <ShieldCheckIcon className="h-8 w-8 text-primary" />
+                    <div className="mx-auto max-w-4xl rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-8 md:p-14 shadow-[0_0_40px_-15px_rgba(var(--primary),0.3)]">
+                        <div className="flex flex-col items-center gap-8 text-center md:flex-row md:text-left">
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-primary/10 shadow-neon-primary">
+                                <ShieldCheckIcon className="h-10 w-10 text-primary" />
                             </div>
                             <div>
-                                <h3 className="mb-2 text-xl font-bold">
-                                    Privacidad y seguridad garantizadas
+                                <h3 className="mb-3 text-2xl font-black md:text-3xl">
+                                    Mensajes Cifrados y Privacidad Total
                                 </h3>
-                                <p className="text-muted-foreground">
-                                    Solo estudiantes con correo @potros.itson.edu.mx pueden
-                                    registrarse. Las evaluaciones de profesores son completamente
-                                    anónimas. Tu información está protegida.
+                                <p className="text-lg text-muted-foreground">
+                                    Tus conversaciones en PotroNET son privadas. Utilizamos WebSockets seguros y 
+                                    sistemas de cifrado para que tu comunicación estudiantil sea confidencial. 
+                                    Además, solo estudiantes con correo <strong>@potros.itson.edu.mx</strong> tienen acceso a la red.
                                 </p>
                             </div>
                         </div>
-                        <div className="mt-6 grid gap-3 md:grid-cols-3">
+                        <div className="mt-10 grid gap-4 md:grid-cols-3">
                             {[
-                                'Verificación de correo institucional',
-                                'Evaluaciones anónimas',
-                                'Conexiones seguras HTTPS',
+                                'Acceso Exclusivo Universitario',
+                                'Mensajería Privada Segura',
+                                'Evaluaciones 100% Anónimas',
                             ].map((item) => (
-                                <div key={item} className="flex items-center gap-2 text-sm">
-                                    <CheckIcon className="h-4 w-4 text-primary" />
+                                <div key={item} className="flex items-center gap-3 rounded-xl bg-card/50 p-4 text-sm font-medium border border-border/50">
+                                    <CheckIcon className="h-5 w-5 text-primary" />
                                     <span>{item}</span>
                                 </div>
                             ))}
@@ -259,20 +253,61 @@ export function LandingPage() {
             </section>
 
             {/* Footer */}
-            <footer className="border-t border-border bg-card/50 py-8">
+            <footer className="border-t border-border bg-card/50 py-12 md:py-16">
                 <div className="mx-auto max-w-7xl px-4 md:px-8">
-                    <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-                        <div className="flex items-center gap-2">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-                                <span className="text-xs font-black text-primary-foreground">P</span>
+                    <div className="grid gap-10 md:grid-cols-4 lg:gap-8">
+                        {/* Brand Column */}
+                        <div className="md:col-span-2">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-neon-primary">
+                                    <span className="text-sm font-black text-primary-foreground">P</span>
+                                </div>
+                                <span className="text-xl font-bold">
+                                    Potro<span className="text-primary">NET</span>
+                                </span>
                             </div>
-                            <span className="font-bold">
-                                Potro<span className="text-primary">NET</span>
-                            </span>
+                            <p className="max-w-xs text-sm text-muted-foreground">
+                                La red social exclusiva diseñada para mejorar la experiencia académica de los estudiantes del ITSON.
+                            </p>
+                            <div className="mt-6">
+                                <p className="text-sm font-semibold text-foreground">
+                                    © {new Date().getFullYear()} PotroNET
+                                </p>
+                                <p className="text-xs text-muted-foreground">Hecho por Potros, para Potros</p>
+                            </div>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                            © {new Date().getFullYear()} PotroNET – Hecho por Potros, para Potros
-                        </p>
+
+                        {/* Legal Links */}
+                        <div>
+                            <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-foreground">Legal</h4>
+                            <ul className="space-y-3 text-sm text-muted-foreground">
+                                <li>
+                                    <Link to="/terms" className="hover:text-primary transition-colors">Términos y Condiciones</Link>
+                                </li>
+                                <li>
+                                    <Link to="/privacy" className="hover:text-primary transition-colors">Política de Privacidad</Link>
+                                </li>
+                                <li>
+                                    <Link to="/guidelines" className="hover:text-primary transition-colors">Normas de la Comunidad</Link>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* Resources Links */}
+                        <div>
+                            <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-foreground">Recursos</h4>
+                            <ul className="space-y-3 text-sm text-muted-foreground">
+                                <li>
+                                    <Link to="/docs" className="hover:text-primary transition-colors">Documentación API</Link>
+                                </li>
+                                <li>
+                                    <a href="mailto:soporte@potronet.com" className="hover:text-primary transition-colors">Soporte Técnico</a>
+                                </li>
+                                <li>
+                                    <a href="https://itson.mx" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Portal ITSON</a>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </footer>

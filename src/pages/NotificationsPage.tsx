@@ -1,12 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     BellIcon, UserPlusIcon, MessageCircleIcon, StarIcon,
-    TrophyIcon, AlertCircleIcon, CheckIcon, BookOpenIcon,
+    TrophyIcon, AlertCircleIcon, BookOpenIcon, CheckCheckIcon
 } from 'lucide-react';
 
 interface Notification {
@@ -70,54 +69,132 @@ export function NotificationsPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">Notificaciones</h1>
-                    {unread > 0 && <p className="text-sm text-muted-foreground">{unread} notificaciones sin leer</p>}
+        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10 dark:bg-none dark:bg-background">
+            {/* Hero Section */}
+            <div className="px-4 md:px-8 pt-8 md:pt-12 pb-6">
+                <div className="text-center max-w-4xl mx-auto">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
+                        Centro de Notificaciones
+                    </h1>
+                    <p className="text-muted-foreground text-sm md:text-base mb-8 max-w-2xl mx-auto">
+                        Mantente al día con todas las actualizaciones importantes de tu comunidad académica.
+                    </p>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex justify-center gap-3">
+                        {unread > 0 && (
+                            <Button 
+                                variant="outline" 
+                                onClick={markAllRead}
+                                className="rounded-full px-6 border-border/50"
+                            >
+                                <CheckCheckIcon className="mr-2 h-4 w-4" />
+                                Marcar todas como leídas ({unread})
+                            </Button>
+                        )}
+                    </div>
                 </div>
-                {unread > 0 && (
-                    <Button variant="outline" size="sm" onClick={markAllRead}><CheckIcon className="mr-1 h-4 w-4" /> Marcar todas como leídas</Button>
-                )}
             </div>
 
-            {loading ? (
-                <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
-            ) : notifications.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border py-16 text-center">
-                    <BellIcon className="mx-auto h-12 w-12 text-muted-foreground/30" />
-                    <p className="mt-4 text-muted-foreground">No tienes notificaciones</p>
-                </div>
-            ) : (
-                <div className="space-y-2">
-                    {notifications.map(n => {
-                        const Icon = TYPE_ICONS[n.type] || BellIcon;
-                        return (
-                            <Card key={n.id} className={`transition-all ${!n.is_read ? 'border-primary/30 bg-primary/5' : ''}`} onClick={() => !n.is_read && markAsRead(n.id)}>
-                                <CardContent className="flex items-start gap-4 py-4 cursor-pointer">
-                                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${!n.is_read ? 'bg-primary/10' : 'bg-muted'}`}>
-                                        <Icon className={`h-5 w-5 ${!n.is_read ? 'text-primary' : 'text-muted-foreground'}`} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`text-sm ${!n.is_read ? 'font-semibold' : 'font-medium'}`}>{n.title}</p>
-                                        {n.body && <p className="mt-0.5 text-xs text-muted-foreground">{n.body}</p>}
-                                        <p className="mt-1 text-xs text-muted-foreground">{new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                                    </div>
-                                    {!n.is_read && <Badge className="shrink-0">Nuevo</Badge>}
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-                </div>
-            )}
+            {/* Notifications List */}
+            <div className="px-4 md:px-8 pb-8">
+                <div className="max-w-4xl mx-auto">
+                    {loading ? (
+                        <div className="flex justify-center py-16">
+                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                        </div>
+                    ) : notifications.length === 0 ? (
+                        <div className="text-center py-16">
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-muted/20 rounded-full mb-6">
+                                <BellIcon className="h-10 w-10 text-muted-foreground/50" />
+                            </div>
+                            <h3 className="text-xl font-semibold mb-2">No tienes notificaciones</h3>
+                            <p className="text-muted-foreground max-w-md mx-auto">
+                                Te notificaremos cuando haya actualizaciones importantes para ti.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {notifications.map(n => {
+                                const Icon = TYPE_ICONS[n.type] || BellIcon;
+                                return (
+                                    <div 
+                                        key={n.id} 
+                                        className={`bg-card/40 backdrop-blur-sm border border-border/30 rounded-xl p-4 hover:bg-card/60 transition-all cursor-pointer ${
+                                            !n.is_read ? 'ring-2 ring-primary/20 border-primary/30' : ''
+                                        }`}
+                                        onClick={() => !n.is_read && markAsRead(n.id)}
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            {/* Icon */}
+                                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                                                !n.is_read 
+                                                    ? 'bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30' 
+                                                    : 'bg-muted/50 border border-border/50'
+                                            }`}>
+                                                <Icon className={`h-5 w-5 ${!n.is_read ? 'text-primary' : 'text-muted-foreground'}`} />
+                                            </div>
 
-            {totalPages > 1 && (
-                <div className="flex justify-center gap-2 pt-4">
-                    <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</Button>
-                    <span className="flex items-center text-sm text-muted-foreground">{page} / {totalPages}</span>
-                    <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>Siguiente</Button>
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div className="flex-1">
+                                                        <h3 className={`text-sm mb-1 ${!n.is_read ? 'font-semibold text-foreground' : 'font-medium text-foreground/90'}`}>
+                                                            {n.title}
+                                                        </h3>
+                                                        {n.body && (
+                                                            <p className="text-muted-foreground text-xs leading-relaxed">{n.body}</p>
+                                                        )}
+                                                    </div>
+                                                    {!n.is_read && (
+                                                        <Badge className="shrink-0 ml-2 px-1.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground">
+                                                            Nuevo
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <BellIcon className="h-3 w-3" />
+                                                    <span>{new Date(n.created_at).toLocaleDateString('es-MX', { 
+                                                        day: 'numeric', 
+                                                        month: 'short', 
+                                                        hour: '2-digit', 
+                                                        minute: '2-digit' 
+                                                    })}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex justify-center gap-2 pt-8">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                disabled={page === 1} 
+                                onClick={() => setPage(page - 1)}
+                                className="rounded-full border-border/50"
+                            >
+                                Anterior
+                            </Button>
+                            <span className="flex items-center text-sm text-muted-foreground px-3">{page} / {totalPages}</span>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                disabled={page === totalPages} 
+                                onClick={() => setPage(page + 1)}
+                                className="rounded-full border-border/50"
+                            >
+                                Siguiente
+                            </Button>
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 }

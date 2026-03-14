@@ -7,8 +7,6 @@ import {
     SearchIcon,
     GraduationCapIcon,
     BookOpenIcon,
-    MapIcon,
-    UsersIcon,
     MessageCircleIcon,
     BellIcon,
     ChevronLeftIcon,
@@ -28,8 +26,6 @@ const navItems = [
     { to: '/search', icon: SearchIcon, label: 'Buscar' },
     { to: '/professors', icon: GraduationCapIcon, label: 'Profesores' },
     { to: '/tutoring', icon: BookOpenIcon, label: 'Tutorías' },
-    { to: '/roadmap', icon: MapIcon, label: 'Mapa Curricular' },
-    { to: '/friends', icon: UsersIcon, label: 'Amigos' },
     { to: '/messages', icon: MessageCircleIcon, label: 'Mensajes' },
     { to: '/notifications', icon: BellIcon, label: 'Notificaciones' },
 ];
@@ -67,7 +63,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                     </div>
 
                     {/* Collapse toggle - desktop only */}
-                    <div className="mb-2 hidden justify-end md:flex">
+                    <div className={`mb-2 hidden md:flex ${collapsed ? 'justify-center' : 'justify-end'}`}>
                         <button
                             onClick={onToggleCollapse}
                             title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
@@ -103,14 +99,21 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
 
                     {/* Career info - only visible when expanded */}
                     {!collapsed && profile?.career && (
-                        <div className="mt-auto rounded-lg border border-border bg-card p-4">
-                            <p className="text-xs font-medium text-muted-foreground">Mi Carrera</p>
-                            <p className="mt-1 text-sm font-semibold text-foreground">
-                                {profile.career.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                Semestre {profile.semester}
-                            </p>
+                        <div className="mt-auto relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 shadow-sm group hover:shadow-md transition-all">
+                            {/* Decorative background icon */}
+                            <div className="absolute -right-4 -bottom-4 opacity-[0.05] group-hover:opacity-10 group-hover:scale-110 transition-all pointer-events-none">
+                                <GraduationCapIcon className="h-24 w-24 text-primary" />
+                            </div>
+                            
+                            <div className="relative z-10">
+                                <p className="text-xs font-semibold text-primary/80 uppercase tracking-wider mb-1">Mi Carrera</p>
+                                <p className="text-sm font-bold text-foreground leading-tight">
+                                    {profile.career.name}
+                                </p>
+                                <div className="mt-2 inline-flex items-center rounded-full bg-background/50 px-2.5 py-0.5 border border-border/50 text-xs font-medium text-muted-foreground backdrop-blur-sm">
+                                    Semestre {profile.semester}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
