@@ -49,7 +49,7 @@ function PublicRoute({ children }: { children: ReactNode }) {
     return <>{children}</>;
 }
 
-function ProtectedPage({ children }: { children: ReactNode }) {
+function ProtectedPage({ children, noPaddingMobile }: { children: ReactNode, noPaddingMobile?: boolean }) {
     const { profile, loading } = useAuth();
     const location = useLocation();
 
@@ -58,7 +58,7 @@ function ProtectedPage({ children }: { children: ReactNode }) {
         return <ProtectedRoute><Navigate to="/onboarding" replace /></ProtectedRoute>;
     }
 
-    return <ProtectedRoute><AppLayout>{children}</AppLayout></ProtectedRoute>;
+    return <ProtectedRoute><AppLayout noPaddingMobile={noPaddingMobile}>{children}</AppLayout></ProtectedRoute>;
 }
 
 export function App() {
@@ -71,17 +71,17 @@ export function App() {
                         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
                         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
                         <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
-                        <Route path="/feed" element={<ProtectedPage><FeedPage /></ProtectedPage>} />
+                        <Route path="/feed" element={<ProtectedPage noPaddingMobile><FeedPage /></ProtectedPage>} />
                         <Route path="/profile/:id" element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
                         <Route path="/search" element={<ProtectedPage><SearchPage /></ProtectedPage>} />
-                        <Route path="/professors" element={<ProtectedPage><ProfessorsPage /></ProtectedPage>} />
+                        <Route path="/professors" element={<ProtectedPage noPaddingMobile><ProfessorsPage /></ProtectedPage>} />
                         <Route path="/professors/:id" element={<ProtectedPage><ProfessorDetailPage /></ProtectedPage>} />
                         <Route path="/tutoring" element={<ProtectedPage><TutoringPage /></ProtectedPage>} />
                         <Route path="/roadmap" element={<ProtectedPage><RoadmapPage /></ProtectedPage>} />
                         <Route path="/roadmap/:userId" element={<ProtectedPage><RoadmapPage /></ProtectedPage>} />
                         <Route path="/friends" element={<ProtectedPage><FriendsPage /></ProtectedPage>} />
-                        <Route path="/messages" element={<ProtectedPage><MessagesPage /></ProtectedPage>} />
-                        <Route path="/messages/:userId" element={<ProtectedPage><MessagesPage /></ProtectedPage>} />
+                        <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
+                        <Route path="/messages/:userId" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
                         <Route path="/notifications" element={<ProtectedPage><NotificationsPage /></ProtectedPage>} />
                         <Route path="/terms" element={<TermsPage />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
