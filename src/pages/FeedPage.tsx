@@ -197,8 +197,8 @@ export function FeedPage() {
         </div>
       </div>
 
-      <div className="px-4 md:px-8 pb-8">
-        <div className="max-w-4xl mx-auto">
+      <div className="px-2 md:px-8 pb-8">
+        <div className="w-full md:max-w-4xl md:mx-auto">
           <PullToRefresh onRefresh={async () => handleRefresh()}>
             {loading ? (
               <div className="text-center py-20">Cargando...</div>
