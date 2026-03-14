@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import {
     MessageCircleIcon, SendIcon, UserIcon, ArrowLeftIcon,
-    CheckIcon, CheckCheckIcon, SmileIcon, ReplyIcon, XIcon
+    CheckIcon, CheckCheckIcon, SmileIcon, XIcon
 } from 'lucide-react';
 
 // Hook para detectar tamaño de pantalla
@@ -318,30 +318,9 @@ export function MessagesPage() {
                                             style={{ transform: swipeStates[msg.id] ? `translateX(${swipeStates[msg.id]}px)` : 'translateX(0)' }}
                                         >
                                             {repliedMsg && (
-                                                <div className="mb-2 relative">
-                                                    {/* Línea conectora */}
-                                                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 to-transparent"></div>
-                                                    
-                                                    {/* Contenedor de respuesta */}
-                                                    <div className="relative pl-4">
-                                                        {/* Indicador visual */}
-                                                        <div className="absolute -left-2 top-2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                                                            <ReplyIcon className="h-2 w-2 text-white" />
-                                                        </div>
-                                                        
-                                                        {/* Badge de respuesta */}
-                                                        <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-500 text-white text-xs font-medium rounded-full mb-1.5 shadow-sm">
-                                                            <ReplyIcon className="h-3 w-3" />
-                                                            <span>{repliedMsg.sender_id === user?.id ? 'Tú' : chatUser?.full_name}</span>
-                                                        </div>
-                                                        
-                                                        {/* Contenido respondido */}
-                                                        <div className="bg-white/80 dark:bg-card/80 backdrop-blur-sm rounded-lg p-3 border border-blue-200 dark:border-blue-800 shadow-sm">
-                                                            <p className="text-sm text-foreground leading-relaxed">
-                                                                {repliedMsg.content}
-                                                            </p>
-                                                        </div>
-                                                    </div>
+                                                <div className="mb-1.5 rounded-xl bg-background/50 p-2 text-xs border-l-4 border-primary">
+                                                    <span className="font-semibold text-primary">{repliedMsg.sender_id === user?.id ? 'Tú' : chatUser?.full_name}</span>
+                                                    <p className="text-muted-foreground truncate">{repliedMsg.content}</p>
                                                 </div>
                                             )}
 
@@ -386,39 +365,14 @@ export function MessagesPage() {
                     )}
 
                     {replyingTo && (
-                        <div className="max-w-4xl mx-auto w-full mb-3 relative">
-                            {/* Línea conectora superior */}
-                            <div className="absolute left-4 top-0 w-0.5 h-3 bg-gradient-to-b from-blue-500 to-transparent"></div>
-                            
-                            <div className="relative pl-8">
-                                {/* Indicador visual */}
-                                <div className="absolute left-2 top-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
-                                    <ReplyIcon className="h-3 w-3 text-white" />
-                                </div>
-                                
-                                {/* Badge principal */}
-                                <div className="inline-flex items-center gap-2 px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded-full mb-2 shadow-md">
-                                    <ReplyIcon className="h-4 w-4" />
-                                    <span>Respondiendo a {replyingTo?.sender_id === user?.id ? 'Ti' : chatUser?.full_name}</span>
-                                </div>
-                                
-                                {/* Contenido citado */}
-                                <div className="bg-white/80 dark:bg-card/80 backdrop-blur-sm rounded-lg p-3 border border-blue-200 dark:border-blue-800 shadow-sm">
-                                    <p className="text-sm text-foreground leading-relaxed">
-                                        {replyingTo?.content}
-                                    </p>
-                                </div>
-                                
-                                {/* Botón cancelar */}
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-white/80 dark:bg-card/80 hover:bg-white dark:hover:bg-card backdrop-blur-sm shadow-sm" 
-                                    onClick={() => setReplyingTo(null)}
-                                >
-                                    <XIcon className="h-3 w-3 text-foreground" />
-                                </Button>
+                        <div className="max-w-4xl mx-auto w-full mb-2 flex items-center justify-between rounded-xl bg-muted/50 p-2 text-[13px] border-l-4 border-primary">
+                            <div className="flex-1 min-w-0 pr-2">
+                                <span className="font-semibold text-primary block truncate">Respondiendo a {replyingTo?.sender_id === user?.id ? 'Ti' : chatUser?.full_name}</span>
+                                <span className="text-muted-foreground truncate block">{replyingTo?.content}</span>
                             </div>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setReplyingTo(null)}>
+                                <XIcon className="h-4 w-4" />
+                            </Button>
                         </div>
                     )}
                     <div className="flex items-end gap-2 max-w-4xl mx-auto w-full">

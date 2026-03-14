@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
@@ -14,10 +15,13 @@ import {
     CheckIcon,
     SparklesIcon,
     ShieldCheckIcon,
+    MenuIcon,
+    XIcon,
 } from 'lucide-react';
 
 export function LandingPage() {
     const { theme, toggleTheme } = useTheme();
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const features = [
         {
@@ -58,12 +62,10 @@ export function LandingPage() {
         },
     ];
 
-    // steps were removed from here
-
     return (
         <div className="min-h-screen bg-background text-foreground">
             {/* Navbar */}
-            <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
+            <nav className="sticky top-0 left-0 right-0 w-full border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60 z-40">
                 <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
                     <div className="flex items-center gap-2">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25">
@@ -77,13 +79,54 @@ export function LandingPage() {
                         <Button variant="ghost" size="icon" onClick={toggleTheme}>
                             {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
                         </Button>
-                        <Link to="/login">
-                            <Button variant="ghost">Iniciar Sesión</Button>
+                        
+                        {/* Desktop buttons */}
+                        <div className="hidden md:flex items-center gap-3">
+                            <Link to="/login">
+                                <Button variant="ghost">Iniciar Sesión</Button>
+                            </Link>
+                            <Link to="/register">
+                                <Button>
+                                    Registrarse
+                                    <ArrowRightIcon className="ml-1 h-4 w-4" />
+                                </Button>
+                            </Link>
+                        </div>
+                        
+                        {/* Mobile menu button */}
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="md:hidden"
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        >
+                            {mobileMenuOpen ? <XIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
+                        </Button>
+                    </div>
+                </div>
+                
+                {/* Mobile Menu - DENTRO del navbar */}
+                <div className={`md:hidden absolute top-full left-0 right-0 z-[9999] bg-background border border-border shadow-xl transition-all duration-300 ease-in-out origin-top ${
+                    mobileMenuOpen ? 'opacity-100 scale-y-100 translate-y-0' : 'opacity-0 scale-y-95 -translate-y-2 pointer-events-none'
+                }`}>
+                    <div className="p-4 flex gap-2">
+                        <Link 
+                            to="/login" 
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex-1"
+                        >
+                            <Button variant="ghost" className="w-full h-12 text-base justify-center hover:bg-muted">
+                                Iniciar Sesión
+                            </Button>
                         </Link>
-                        <Link to="/register">
-                            <Button>
+                        <Link 
+                            to="/register" 
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex-1"
+                        >
+                            <Button className="w-full h-12 text-base justify-center">
                                 Registrarse
-                                <ArrowRightIcon className="ml-1 h-4 w-4" />
+                                <ArrowRightIcon className="ml-2 h-4 w-4" />
                             </Button>
                         </Link>
                     </div>
