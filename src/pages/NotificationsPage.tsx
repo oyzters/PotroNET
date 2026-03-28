@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import {
     BellIcon, UserPlusIcon, MessageCircleIcon, StarIcon,
     TrophyIcon, AlertCircleIcon, BookOpenIcon, CheckCheckIcon
@@ -69,32 +70,24 @@ export function NotificationsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10 dark:bg-none dark:bg-background">
+        <div className="min-h-screen">
             {/* Hero Section */}
-            <div className="px-4 md:px-8 pt-8 md:pt-12 pb-6">
-                <div className="text-center max-w-4xl mx-auto">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-                        Centro de Notificaciones
-                    </h1>
-                    <p className="text-muted-foreground text-sm md:text-base mb-8 max-w-2xl mx-auto">
-                        Mantente al día con todas las actualizaciones importantes de tu comunidad académica.
-                    </p>
-                    
-                    {/* Action Buttons */}
-                    <div className="flex justify-center gap-3">
-                        {unread > 0 && (
-                            <Button 
-                                variant="outline" 
-                                onClick={markAllRead}
-                                className="rounded-full px-6 border-border/50"
-                            >
-                                <CheckCheckIcon className="mr-2 h-4 w-4" />
-                                Marcar todas como leídas ({unread})
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            </div>
+            <SectionHeader
+                title="Notificaciones"
+                subtitle="Manténte al día con todas las actualizaciones de tu comunidad académica."
+                accentLabel="Centro de alertas"
+            >
+                {unread > 0 && (
+                    <Button
+                        variant="outline"
+                        onClick={markAllRead}
+                        className="rounded-full px-6 border-primary/30 hover:border-primary"
+                    >
+                        <CheckCheckIcon className="mr-2 h-4 w-4" />
+                        Marcar todas ({unread})
+                    </Button>
+                )}
+            </SectionHeader>
 
             {/* Notifications List */}
             <div className="px-4 md:px-8 pb-8">

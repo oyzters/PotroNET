@@ -22,17 +22,25 @@ export function Navbar() {
     };
 
     return (
-        <header className="sticky top-0 z-50 flex h-16 w-full items-center border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-6">
+        <header className="sticky top-0 z-50 flex h-16 w-full items-center border-b px-4 md:px-6 transition-shadow duration-300"
+            style={{
+                background: 'var(--glass-bg)',
+                backdropFilter: 'blur(24px) saturate(1.8)',
+                WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+                borderColor: 'var(--glass-border)',
+                boxShadow: '0 1px 0 var(--glass-border), 0 4px 24px oklch(0.68 0.15 237 / 0.06)',
+            }}
+        >
             <div className="flex w-full items-center justify-between">
                 {/* Left: logo */}
                 <div className="flex items-center gap-2">
-                    <Link to="/feed" className="flex items-center gap-2">
-                        <img 
-                            src="/potronet.png" 
-                            alt="PotroNET Logo" 
-                            className="h-10 w-auto object-contain drop-shadow-sm"
+                    <Link to="/feed" className="flex items-center gap-2 group">
+                        <img
+                            src="/potronet.png"
+                            alt="PotroNET Logo"
+                            className="h-9 w-auto object-contain drop-shadow-sm transition-all duration-300 group-hover:drop-shadow-[0_0_8px_oklch(0.68_0.15_237/0.6)]"
                         />
-                        <span className="hidden text-lg font-bold text-foreground sm:block">
+                        <span className="hidden text-lg font-bold sm:block">
                             Potro<span className="text-primary">NET</span>
                         </span>
                     </Link>
@@ -40,7 +48,12 @@ export function Navbar() {
 
                 {/* Right: actions */}
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={toggleTheme}>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleTheme}
+                        className="rounded-full transition-all duration-200 hover:bg-primary/10 hover:text-primary"
+                    >
                         {theme === 'light' ? (
                             <MoonIcon className="h-5 w-5" />
                         ) : (
@@ -50,8 +63,11 @@ export function Navbar() {
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="relative">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                            <Button variant="ghost" size="icon" className="relative rounded-full">
+                                <div
+                                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 ring-2 ring-transparent transition-all duration-200 hover:ring-primary/40"
+                                    style={{ boxShadow: 'none' }}
+                                >
                                     {profile?.avatar_url ? (
                                         <img
                                             src={profile.avatar_url}

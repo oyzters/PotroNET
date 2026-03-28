@@ -251,7 +251,7 @@ export function MessagesPage() {
     // Mobile chat view - When specific user is selected
     if (activeUserId && !isDesktop) {
         return (
-            <div className="fixed inset-x-0 top-0 bottom-0 z-[100] flex flex-col bg-[#efeae2] dark:bg-background">
+            <div className="fixed inset-x-0 top-0 bottom-0 z-[100] flex flex-col bg-background">
                 {/* Header */}
                 <div className="flex items-center justify-between bg-white dark:bg-card px-3 py-2 border-b border-border shadow-sm h-16 shrink-0 pt-4">
                     <div className="flex items-center gap-1.5 overflow-hidden">
@@ -409,7 +409,7 @@ export function MessagesPage() {
     // Mobile chat list - When no activeUserId
     if (!activeUserId && !isDesktop) {
         return (
-            <div className="space-y-0.5 pb-20 h-screen flex flex-col pt-4">
+        <div className="pb-20 h-screen flex flex-col pt-4 bg-background relative z-10">
                 <div className="px-4 pb-2 flex justify-between items-center mb-2">
                     <div className="flex items-center gap-3">
                         <Link to="/" className="p-2 rounded-full hover:bg-muted text-primary transition-colors">
@@ -485,7 +485,7 @@ export function MessagesPage() {
 
     // Desktop layout - Always show sidebar + chat area
     return (
-        <div className="h-screen bg-background flex">
+        <div className="h-screen flex bg-background relative z-10">
             {/* Sidebar - User List */}
             <div className="w-80 border-r border-border flex flex-col bg-muted/20">
                 {/* Sidebar Header */}

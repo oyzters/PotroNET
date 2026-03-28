@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Link } from 'react-router-dom';
 import {
     SearchIcon, GraduationCapIcon, PlusIcon, XIcon, CheckCircleIcon, AwardIcon
@@ -92,7 +93,7 @@ export function ProfessorsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10 dark:bg-none dark:bg-background">
+        <div className="min-h-screen">
             {/* Confirmation modal */}
             {showSuccess && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSuccess(false)}>
@@ -112,34 +113,26 @@ export function ProfessorsPage() {
             )}
 
             {/* Hero Section */}
-            <div className="px-4 md:px-8 pt-8 md:pt-12 pb-6">
-                <div className="text-center max-w-4xl mx-auto">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-                        Directorio de Profesores
-                    </h1>
-                    <p className="text-muted-foreground text-sm md:text-base mb-8 max-w-2xl mx-auto">
-                        Evalúa y consulta calificaciones de profesores. Encuentra los mejores docentes para tu aprendizaje.
-                    </p>
-                    
-                    {/* Action Buttons */}
-                    <div className="flex justify-center gap-3">
-                        <Button 
-                            onClick={() => setShowRequest(!showRequest)} 
-                            variant={showRequest ? 'outline' : 'default'} 
-                            className="rounded-full px-6 shadow-lg shadow-primary/25"
-                        >
-                            {showRequest ? <XIcon className="h-4 w-4 mr-2" /> : <PlusIcon className="h-4 w-4 mr-2" />}
-                            {showRequest ? 'Cancelar' : 'Agregar Profesor'}
-                        </Button>
-                    </div>
-                </div>
-            </div>
+            <SectionHeader
+                title="Directorio de Profesores"
+                subtitle="Evalúa y consulta calificaciones de profesores. Encuentra los mejores docentes para tu aprendizaje."
+                accentLabel="Evaluaciones ITSON"
+            >
+                <Button
+                    onClick={() => setShowRequest(!showRequest)}
+                    variant={showRequest ? 'outline' : 'default'}
+                    className="rounded-full px-6 shadow-lg shadow-primary/25"
+                >
+                    {showRequest ? <XIcon className="h-4 w-4 mr-2" /> : <PlusIcon className="h-4 w-4 mr-2" />}
+                    {showRequest ? 'Cancelar' : 'Agregar Profesor'}
+                </Button>
+            </SectionHeader>
 
             {/* Request Form */}
             {showRequest && (
                 <div className="px-4 md:px-8 pb-6">
                     <div className="max-w-4xl mx-auto">
-                        <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-6">
+                        <div className="bg-card border border-border shadow-sm rounded-2xl p-6">
                             <h3 className="font-semibold text-lg mb-6">Solicitar agregar profesor</h3>
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -254,7 +247,7 @@ export function ProfessorsPage() {
                         <div className="space-y-0">
                             {professors.map((prof) => (
                                 <Link to={`/professors/${prof.id}`} key={prof.id}>
-                                    <div className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-6 hover:bg-card/60 transition-all group mb-4">
+                                    <div className="bg-card border border-border shadow-sm rounded-2xl p-6 hover:bg-muted transition-all group mb-4">
                                         {/* Mobile Layout */}
                                         <div className="md:hidden">
                                             <div className="flex items-start gap-3 p-1 rounded-lg">

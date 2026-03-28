@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { NeonBackground } from '@/components/ui/NeonBackground';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
@@ -65,6 +66,7 @@ export function App() {
     return (
         <BrowserRouter>
             <ThemeProvider>
+                <NeonBackground />
                 <AuthProvider>
                     <Routes>
                         <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
