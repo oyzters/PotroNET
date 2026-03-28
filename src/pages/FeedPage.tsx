@@ -14,6 +14,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { CreatePost } from "@/components/feed/CreatePost";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
@@ -178,24 +179,16 @@ export function FeedPage() {
 
   return (
     <div className="w-full">
-      <div className="px-4 md:px-8 pt-8 md:pt-12 pb-6">
-        <div className="text-center max-w-4xl mx-auto">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-            Feed de la Comunidad
-          </h1>
-
-          <p className="text-muted-foreground text-sm md:text-base mb-8 max-w-2xl mx-auto">
-            Descubre lo que está compartiendo la comunidad. Conecta y entérate de todo.
-          </p>
-
-          <Button onClick={handleRefresh} disabled={loading}>
-            <RefreshCwIcon
-              className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
-            />
-            Actualizar
-          </Button>
-        </div>
-      </div>
+      <SectionHeader
+        title="Feed de la Comunidad"
+        subtitle="Descubre lo que está compartiendo la comunidad. Conecta y entérate de todo."
+        accentLabel="Comunidad ITSON"
+      >
+        <Button onClick={handleRefresh} disabled={loading} variant="outline" className="rounded-full border-primary/30 hover:border-primary">
+          <RefreshCwIcon className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          Actualizar
+        </Button>
+      </SectionHeader>
 
       <div className="px-2 md:px-8 pb-8">
         <div className="w-full md:max-w-4xl md:mx-auto">
@@ -287,12 +280,11 @@ export function FeedPage() {
 
                 <div className="space-y-4 pb-20">
                   {publications.map((publication) => (
-                    <div
+                <div
                       key={publication.id}
-                      className="border border-border/30 rounded-2xl p-4 md:p-6 bg-card/40 backdrop-blur-sm shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-300 group relative overflow-hidden"
+                      className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 bg-card border border-border shadow-sm"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 ease-out pointer-events-none"></div>
-                      <div className="relative">
+                      <div className="relative p-4 md:p-6">
                         <div className="flex justify-between mb-3 md:mb-4">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 md:h-12 md:w-12 rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 shadow-inner p-0.5">

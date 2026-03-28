@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import { SearchIcon, UserIcon, GraduationCapIcon, BookOpenIcon, StarIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -61,7 +62,7 @@ export function SearchPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10 dark:bg-none dark:bg-background">
+        <div className="min-h-screen">
             {/* Mobile Quick Access - Only visible on mobile */}
             <div className="md:hidden px-4 pt-4 pb-0">
                 <div className="grid grid-cols-2 gap-3">
@@ -83,52 +84,47 @@ export function SearchPage() {
             </div>
 
             {/* Hero Section */}
-            <div className="px-4 md:px-8 pt-8 md:pt-12 pb-6">
-                <div className="text-center max-w-4xl mx-auto">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-                        Descubre en PotroNET
-                    </h1>
-                    <p className="text-muted-foreground text-sm md:text-base mb-8 max-w-2xl mx-auto">
-                        Busca estudiantes, profesores, recursos y mucho más. Encuentra exactamente lo que necesitas para tu vida académica.
-                    </p>
-                    
-                    {/* Modern Search Bar */}
-                    <div className="relative max-w-2xl mx-auto">
-                        <div className="relative group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all"></div>
-                            <div className="relative bg-background border border-border/50 rounded-2xl shadow-lg hover:shadow-xl transition-all">
-                                <div className="flex items-center">
-                                    <div className="pl-4 pr-3">
-                                        <SearchIcon className="h-5 w-5 text-muted-foreground" />
-                                    </div>
-                                    <Input
-                                        placeholder="Busca estudiantes, profesores, materias..."
-                                        value={query}
-                                        onChange={(e) => setQuery(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                        className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base py-3 pl-2 pr-0 w-full"
-                                    />
-                                    {loading && (
-                                        <div className="pr-4">
-                                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                        </div>
-                                    )}
-                                </div>
+            <SectionHeader
+                title="Descubre en PotroNET"
+                subtitle="Busca estudiantes, profesores, recursos y mucho más. Encuentra exactamente lo que necesitas."
+                accentLabel="Explorar"
+            />
+
+            {/* Search Bar */}
+            <div className="px-4 md:px-8 pb-6">
+                <div className="max-w-2xl mx-auto relative group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all"></div>
+                    <div className="relative bg-background border border-border/50 rounded-2xl shadow-lg hover:shadow-xl transition-all">
+                        <div className="flex items-center">
+                            <div className="pl-4 pr-3">
+                                <SearchIcon className="h-5 w-5 text-muted-foreground" />
                             </div>
+                            <Input
+                                placeholder="Busca estudiantes, profesores, materias..."
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm md:text-base py-3 pl-2 pr-0 w-full"
+                            />
+                            {loading && (
+                                <div className="pr-4">
+                                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                </div>
+                            )}
                         </div>
-                        
-                        {/* Search Suggestions */}
-                        <div className="mt-4 flex flex-wrap justify-center gap-2">
-                            {['Ingeniería', 'Matemáticas', 'Física', 'Programación'].map((suggestion) => (
-                                <button
-                                    key={suggestion}
-                                    onClick={() => setQuery(suggestion)}
-                                    className="px-3 py-1 text-xs bg-muted/60 hover:bg-muted rounded-full transition-colors"
-                                >
-                                    {suggestion}
-                                </button>
-                            ))}
-                        </div>
+                    </div>
+                    
+                    {/* Search Suggestions */}
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                        {['Ingeniería', 'Matemáticas', 'Física', 'Programación'].map((suggestion) => (
+                            <button
+                                key={suggestion}
+                                onClick={() => setQuery(suggestion)}
+                                className="px-3 py-1 text-xs bg-muted/60 hover:bg-muted rounded-full transition-colors"
+                            >
+                                {suggestion}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Link } from 'react-router-dom';
 import {
     BookOpenIcon, SearchIcon, PlusIcon, UserIcon, CalendarIcon, XIcon, AwardIcon
@@ -100,36 +101,28 @@ export function TutoringPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10 dark:bg-none dark:bg-background">
+        <div className="min-h-screen">
             {/* Hero Section */}
-            <div className="px-4 md:px-8 pt-8 md:pt-12 pb-6">
-                <div className="text-center max-w-4xl mx-auto">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-                        Centro de Tutorías
-                    </h1>
-                    <p className="text-muted-foreground text-sm md:text-base mb-8 max-w-2xl mx-auto">
-                        Encuentra ayuda académica u ofrece tus conocimientos. Conecta con tutores y estudiantes para potenciar tu aprendizaje.
-                    </p>
-                    
-                    {/* Action Buttons */}
-                    <div className="flex justify-center gap-3">
-                        <Button 
-                            onClick={() => { setShowCreate(!showCreate); }}
-                            variant={showCreate ? 'outline' : 'default'} 
-                            className="rounded-full px-6 shadow-lg shadow-primary/25"
-                        >
-                            {showCreate ? <XIcon className="mr-2 h-4 w-4" /> : <PlusIcon className="mr-2 h-4 w-4" />}
-                            {showCreate ? 'Cancelar' : 'Ofrecer Tutoría'}
-                        </Button>
-                    </div>
-                </div>
-            </div>
+            <SectionHeader
+                title="Centro de Tutorías"
+                subtitle="Encuentra ayuda académica u ofrece tus conocimientos. Conecta con tutores y estudiantes."
+                accentLabel="Aprendizaje colaborativo"
+            >
+                <Button
+                    onClick={() => { setShowCreate(!showCreate); }}
+                    variant={showCreate ? 'outline' : 'default'}
+                    className="rounded-full px-6 shadow-lg shadow-primary/25"
+                >
+                    {showCreate ? <XIcon className="mr-2 h-4 w-4" /> : <PlusIcon className="mr-2 h-4 w-4" />}
+                    {showCreate ? 'Cancelar' : 'Ofrecer Tutoría'}
+                </Button>
+            </SectionHeader>
 
             {/* Create Offer Form */}
             {showCreate && (
                 <div className="px-4 md:px-8 pb-6">
                     <div className="max-w-4xl mx-auto">
-                        <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-6">
+                        <div className="bg-card border border-border shadow-sm rounded-2xl p-6">
                             <h3 className="font-semibold text-lg mb-6">Nueva tutoría</h3>
                             
                             <div className="space-y-4">
@@ -217,7 +210,7 @@ export function TutoringPage() {
                     ) : (
                         <div className="space-y-6">
                             {offers.map(offer => (
-                                <div key={offer.id} className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-6 hover:bg-card/60 hover:shadow-lg hover:border-primary/30 transition-all duration-300 group">
+                                <div key={offer.id} className="bg-card border border-border shadow-sm rounded-2xl p-6 hover:shadow-md hover:border-primary/30 transition-all duration-300 group">
                                     {/* Mobile Layout */}
                                     <div className="md:hidden">
                                         <Link to={`/profile/${offer.tutor.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors">

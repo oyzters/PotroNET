@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
-import { UserIcon, TrendingUpIcon, UsersIcon, ZapIcon } from 'lucide-react';
+import { UserIcon, TrendingUpIcon, UsersIcon, ZapIcon, MapIcon, StarIcon, MessageCircleIcon } from 'lucide-react';
 
 interface SuggestedUser {
     id: string;
@@ -12,10 +12,10 @@ interface SuggestedUser {
 }
 
 const FEATURES = [
-    {text: 'Mapa curricular interactivo' },
-    {text: 'Evaluaciones anónimas de profesores' },
-    {text: 'Tutorías entre alumnos' },
-    {text: 'Mensajes directos' },
+    { icon: MapIcon, text: 'Mapa curricular interactivo' },
+    { icon: StarIcon, text: 'Evaluaciones de profesores' },
+    { icon: ZapIcon, text: 'Tutorías entre alumnos' },
+    { icon: MessageCircleIcon, text: 'Mensajes directos' },
 ];
 
 const NEWS = [
@@ -23,6 +23,13 @@ const NEWS = [
     { text: 'Sistema de tutorías actualizado', date: 'Feb 2026' },
     { text: 'PotroNET v2 con nuevas funciones', date: 'Ene 2026' },
 ];
+
+const panelGlass: React.CSSProperties = {
+    background: 'var(--glass-bg)',
+    backdropFilter: 'blur(16px) saturate(1.6)',
+    WebkitBackdropFilter: 'blur(16px) saturate(1.6)',
+    border: '1px solid var(--glass-border)',
+};
 
 export function RightPanel() {
     const { session, profile } = useAuth();
@@ -36,7 +43,6 @@ export function RightPanel() {
                     '/profiles?limit=5',
                     { token: session.access_token }
                 );
-                // Filter out current user
                 setSuggested((data.profiles || []).filter(p => p.id !== profile?.id).slice(0, 4));
             } catch { /* silent */ }
         };
@@ -47,16 +53,18 @@ export function RightPanel() {
         <div className="sticky top-20 space-y-4">
             {/* Suggested people */}
             {suggested.length > 0 && (
-                <div className="rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm p-4">
+                <div className="rounded-2xl p-4 transition-all duration-300 hover:shadow-[0_0_20px_oklch(0.68_0.15_237/0.12)]" style={panelGlass}>
                     <div className="mb-3 flex items-center gap-2">
-                        <UsersIcon className="h-4 w-4 text-primary" />
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
+                            <UsersIcon className="h-3.5 w-3.5 text-primary" />
+                        </div>
                         <span className="text-sm font-semibold">Personas sugeridas</span>
                     </div>
                     <div className="space-y-3">
                         {suggested.map(u => (
                             <Link key={u.id} to={`/profile/${u.id}`}
-                                className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-accent">
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                className="flex items-center gap-3 rounded-xl p-2 transition-all duration-200 hover:bg-primary/8 group">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-transparent group-hover:ring-primary/30 transition-all">
                                     {u.avatar_url
                                         ? <img src={u.avatar_url} alt={u.full_name} className="h-8 w-8 rounded-full object-cover" />
                                         : <UserIcon className="h-4 w-4" />
@@ -69,21 +77,26 @@ export function RightPanel() {
                             </Link>
                         ))}
                     </div>
-                    <Link to="/friends" className="mt-2 block text-center text-xs text-primary hover:underline">
+                    <Link to="/friends" className="mt-2 block text-center text-xs text-primary hover:text-primary/80 transition-colors">
                         Ver más →
                     </Link>
                 </div>
             )}
 
             {/* Features */}
-            <div className="rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm p-4">
+            <div className="rounded-2xl p-4 transition-all duration-300 hover:shadow-[0_0_20px_oklch(0.68_0.15_237/0.12)]" style={panelGlass}>
                 <div className="mb-3 flex items-center gap-2">
-                    <ZapIcon className="h-4 w-4 text-primary" />
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
+                        <ZapIcon className="h-3.5 w-3.5 text-primary" />
+                    </div>
                     <span className="text-sm font-semibold">Funciones PotroNET</span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                     {FEATURES.map((f, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div key={i} className="flex items-center gap-2.5 text-xs text-muted-foreground">
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                <f.icon className="h-3.5 w-3.5 text-primary" />
+                            </div>
                             <span>{f.text}</span>
                         </div>
                     ))}
@@ -91,14 +104,16 @@ export function RightPanel() {
             </div>
 
             {/* News */}
-            <div className="rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm p-4">
+            <div className="rounded-2xl p-4 transition-all duration-300 hover:shadow-[0_0_20px_oklch(0.68_0.15_237/0.12)]" style={panelGlass}>
                 <div className="mb-3 flex items-center gap-2">
-                    <TrendingUpIcon className="h-4 w-4 text-primary" />
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
+                        <TrendingUpIcon className="h-3.5 w-3.5 text-primary" />
+                    </div>
                     <span className="text-sm font-semibold">Novedades</span>
                 </div>
                 <div className="space-y-3">
                     {NEWS.map((n, i) => (
-                        <div key={i} className="border-b border-border/40 pb-2 last:border-0 last:pb-0">
+                        <div key={i} className="border-b border-border/30 pb-2 last:border-0 last:pb-0">
                             <p className="text-xs font-medium leading-tight">{n.text}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">{n.date}</p>
                         </div>
@@ -107,7 +122,7 @@ export function RightPanel() {
             </div>
 
             {/* Footer */}
-            <p className="px-1 text-xs text-muted-foreground/60">
+            <p className="px-1 text-xs text-muted-foreground/50">
                 PotroNET © 2026 · ITSON
             </p>
         </div>

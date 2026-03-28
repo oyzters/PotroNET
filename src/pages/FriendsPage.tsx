@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Link } from 'react-router-dom';
 import {
     UsersIcon, UserPlusIcon, UserMinusIcon, CheckIcon, XIcon, SearchIcon,
@@ -90,10 +91,12 @@ export function FriendsPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold">Amigos</h1>
-                <p className="text-sm text-muted-foreground">Conecta con otros estudiantes</p>
-            </div>
+            <SectionHeader
+                title="Amigos"
+                subtitle="Conecta con otros estudiantes de tu carrera y de ITSON."
+                accentLabel="Red social"
+                align="left"
+            />
 
             <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
                 {tabs.map(t => (
