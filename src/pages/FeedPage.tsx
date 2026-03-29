@@ -1,20 +1,16 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
+import { FeedSkeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/button";
-import { PullToRefresh } from "@/components/ui/PullToRefresh";
-import {
-  RefreshCwIcon,
-  UsersIcon,
-  UserIcon,
-  ThumbsUpIcon,
-  MessageCircleIcon,
-  SendIcon,
-  TrashIcon,
-  XIcon,
-} from "lucide-react";
+import { UsersIcon, XIcon } from "lucide-react";
 import { CreatePost } from "@/components/feed/CreatePost";
-import { SectionHeader } from "@/components/ui/SectionHeader";
+import { PublicationCard } from "@/components/feed/PublicationCard";
+import { RankingCard } from "@/components/feed/RankingCard";
+import { ProfessorSuggestionCard } from "@/components/feed/ProfessorSuggestionCard";
+import { TutoringCard } from "@/components/feed/TutoringCard";
+import { StreakCard } from "@/components/feed/StreakCard";
+import { NewUsersCard } from "@/components/feed/NewUsersCard";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
@@ -31,8 +27,12 @@ interface Publication {
   content: string;
   tags: string[];
   likes_count: number;
+  comments_count?: number;
   created_at: string;
   author: Author;
+  user_liked?: boolean;
+  image_url?: string;
+  media?: Array<{ type: 'image' | 'video'; url: string }>;
 }
 
 interface PublicationsResponse {
@@ -47,46 +47,61 @@ interface PublicationsResponse {
 
 const PAGE_SIZE = 10;
 
+function WidgetSkeleton({ height }: { height: string }) {
+  return (
+    <div className={`bg-muted/30 overflow-hidden rounded-none md:rounded-xl border-y md:border border-border/30 my-0 md:my-2`}>
+      <div className="px-4 py-3">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-4 w-4 rounded bg-muted animate-pulse" />
+          <div className="h-3.5 w-32 rounded bg-muted animate-pulse" />
+        </div>
+        <div className={`${height} rounded-lg bg-muted/50 animate-pulse`} />
+      </div>
+    </div>
+  );
+}
+
 export function FeedPage() {
-  const { session, user } = useAuth();
+  const { session, user, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedTag] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
+  // Widget data
+  const [rankingUsers, setRankingUsers] = useState<any[]>([]);
+  const [professors, setProfessors] = useState<any[]>([]);
+  const [tutoringOffers, setTutoringOffers] = useState<any[]>([]);
+  const [newUsers, setNewUsers] = useState<any[]>([]);
+
+  const [widgetsLoading, setWidgetsLoading] = useState(true);
+
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false);
+  const widgetsFetched = useRef(false);
 
   const fetchPublications = useCallback(
     async (pageNum: number, append: boolean) => {
-      if (!session?.access_token) return;
+      if (!session?.access_token || loadingRef.current) return;
 
+      loadingRef.current = true;
       if (append) setLoadingMore(true);
       else setLoading(true);
 
       try {
-        const params = new URLSearchParams({
-          page: String(pageNum),
-          limit: String(PAGE_SIZE),
-        });
-
-        if (selectedTag) params.set("tag", selectedTag);
-
         const data = await api<PublicationsResponse>(
-          `/publications?${params.toString()}`,
+          `/publications?page=${pageNum}&limit=${PAGE_SIZE}`,
           { token: session.access_token }
         );
 
         if (append) {
           setPublications((prev) => {
             const existingIds = new Set(prev.map((p) => p.id));
-            const newPubs = data.publications.filter(
-              (p) => !existingIds.has(p.id)
-            );
+            const newPubs = data.publications.filter((p) => !existingIds.has(p.id));
             return [...prev, ...newPubs];
           });
         } else {
@@ -99,55 +114,82 @@ export function FeedPage() {
       } finally {
         setLoading(false);
         setLoadingMore(false);
+        loadingRef.current = false;
       }
     },
-    [session?.access_token, selectedTag]
+    [session?.access_token]
   );
 
+  // Initial load
   useEffect(() => {
     setPage(1);
     setHasMore(true);
     fetchPublications(1, false);
   }, [fetchPublications]);
 
+  // Fetch widget data once
+  useEffect(() => {
+    if (!session?.access_token || widgetsFetched.current) return;
+    widgetsFetched.current = true;
+
+    Promise.allSettled([
+      api<{ rankings: any[] }>('/rankings?limit=3', { token: session.access_token }),
+      api<{ professors: any[] }>('/professors?sort=rating&limit=3', { token: session.access_token }),
+      api<{ offers: any[] }>('/tutoring?limit=3', { token: session.access_token }),
+      api<{ profiles: any[] }>('/profiles?limit=10', { token: session.access_token }),
+    ]).then(([rankRes, profRes, tutRes, profilesRes]) => {
+      if (rankRes.status === 'fulfilled') setRankingUsers(rankRes.value.rankings);
+      if (profRes.status === 'fulfilled') setProfessors(profRes.value.professors);
+      if (tutRes.status === 'fulfilled') setTutoringOffers(tutRes.value.offers);
+      if (profilesRes.status === 'fulfilled') setNewUsers(profilesRes.value.profiles.slice(0, 10));
+    }).finally(() => setWidgetsLoading(false));
+  }, [session?.access_token]);
+
+  // Load more pages
   useEffect(() => {
     if (page > 1) {
       fetchPublications(page, true);
     }
-  }, [page]);
+  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Infinite scroll observer
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          setPage((prev) => prev + 1);
+        if (entries[0].isIntersecting && !loadingRef.current) {
+          setPage((prev) => {
+            // Only increment if we still have more
+            setHasMore((currentHasMore) => {
+              if (currentHasMore) {
+                setPage((p) => p + 1);
+              }
+              return currentHasMore;
+            });
+            return prev;
+          });
         }
       },
-      { rootMargin: "200px" }
+      { rootMargin: "300px" }
     );
 
     observer.observe(sentinel);
-
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading]);
+  }, []); // stable — no deps, uses refs and functional setState
 
   const handleLike = async (publicationId: string) => {
     if (!session?.access_token) return;
-
     try {
-      const data = await api<{ liked: boolean }>("/publications/like", {
+      const data = await api<{ liked: boolean }>(`/publications/${publicationId}/likes`, {
         method: "POST",
-        body: JSON.stringify({ publication_id: publicationId }),
         token: session.access_token,
       });
-
       setPublications((prev) =>
         prev.map((p) =>
           p.id === publicationId
-            ? { ...p, likes_count: p.likes_count + (data.liked ? 1 : -1) }
+            ? { ...p, likes_count: p.likes_count + (data.liked ? 1 : -1), user_liked: data.liked }
             : p
         )
       );
@@ -158,20 +200,24 @@ export function FeedPage() {
 
   const handleDelete = async (publicationId: string) => {
     if (!session?.access_token) return;
-
     try {
       await api(`/publications/${publicationId}`, {
         method: "DELETE",
         token: session.access_token,
       });
-
       setPublications((prev) => prev.filter((p) => p.id !== publicationId));
     } catch (e) {
       console.error(e);
     }
   };
 
-  const handleRefresh = () => {
+  const handleNewPost = async (content: string, tags: string[], media?: Array<{ type: string; url: string }>) => {
+    if (!session?.access_token) return;
+    await api('/publications', {
+      method: 'POST',
+      body: JSON.stringify({ content, tags, media: media || [] }),
+      token: session.access_token,
+    });
     setPage(1);
     setHasMore(true);
     fetchPublications(1, false);
@@ -179,216 +225,130 @@ export function FeedPage() {
 
   return (
     <div className="w-full">
-      <SectionHeader
-        title="Feed de la Comunidad"
-        subtitle="Descubre lo que está compartiendo la comunidad. Conecta y entérate de todo."
-        accentLabel="Comunidad ITSON"
-      >
-        <Button onClick={handleRefresh} disabled={loading} variant="outline" className="rounded-full border-primary/30 hover:border-primary">
-          <RefreshCwIcon className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Actualizar
-        </Button>
-      </SectionHeader>
+      {/* Welcome header */}
+      <div className="relative overflow-hidden px-4 pt-6 pb-5">
+        <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-primary/5 blur-3xl" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <h1 className="text-[22px] font-black leading-tight">
+              Hola, <span className="bg-gradient-to-r from-primary to-[oklch(0.75_0.14_233)] bg-clip-text text-transparent">{profile?.full_name?.split(' ')[0] || 'Potro'}</span>
+            </h1>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] font-medium text-primary shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              Tu comunidad al día
+            </div>
+          </div>
+          <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">Descubre publicaciones, rankings y novedades</p>
+        </div>
+      </div>
 
-      <div className="px-2 md:px-8 pb-8">
+      {/* Desktop Create Post */}
+      <div className="hidden md:block px-2 md:px-8 pb-2">
         <div className="w-full md:max-w-4xl md:mx-auto">
-          <PullToRefresh onRefresh={async () => handleRefresh()}>
-            {loading ? (
-              <div className="text-center py-20">Cargando...</div>
-            ) : publications.length === 0 ? (
-              <div className="text-center py-16">
-                <UsersIcon className="h-10 w-10 mx-auto mb-4 opacity-50" />
-                <p>No hay publicaciones aún</p>
-              </div>
-            ) : (
-              <>
-                {/* Desktop Create Post Section */}
-                <div className="hidden md:block">
-                  <CreatePost 
-                    onPost={async (content, tags) => {
-                      if (!session?.access_token) return;
-                      await api('/publications', {
-                        method: 'POST',
-                        body: JSON.stringify({ content, tags }),
-                        token: session.access_token,
-                      });
-                      // Refresh feed to show new post
-                      setPage(1);
-                      setHasMore(true);
-                      fetchPublications(1, false);
+          <CreatePost onPost={handleNewPost} />
+        </div>
+      </div>
+
+      {/* Mobile Create Post Modal */}
+      {createPortal(
+        <AnimatePresence>
+          {location.hash === '#create' && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => navigate(-1)}
+                className="md:hidden fixed inset-0 z-[150] bg-background/80 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="md:hidden fixed inset-x-0 bottom-0 z-[200] bg-background border-t border-border/50 rounded-t-3xl shadow-2xl overflow-hidden pb-safe max-h-[90vh] flex flex-col"
+              >
+                <div className="w-full flex justify-center pt-3 pb-2" onClick={() => navigate(-1)}>
+                  <div className="w-12 h-1.5 bg-muted rounded-full" />
+                </div>
+                <div className="flex items-center justify-between px-4 pb-2 border-b border-border/20 shrink-0">
+                  <h2 className="text-lg font-bold">Nueva publicación</h2>
+                  <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full h-8 w-8">
+                    <XIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="p-4 overflow-y-auto overscroll-contain flex-1">
+                  <CreatePost
+                    onPost={async (content, tags, media) => {
+                      await handleNewPost(content, tags, media);
+                      navigate(-1);
                     }}
                   />
                 </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
-                {/* Mobile Create Post Modal */}
-                {createPortal(
-                  <AnimatePresence>
-                    {location.hash === '#create' && (
-                      <>
-                        {/* Backdrop */}
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          onClick={() => navigate(-1)}
-                          className="md:hidden fixed inset-0 z-[150] bg-background/80 backdrop-blur-sm"
-                        />
-                        
-                        {/* Bottom Sheet Modal */}
-                        <motion.div 
-                          initial={{ y: "100%" }}
-                          animate={{ y: 0 }}
-                          exit={{ y: "100%" }}
-                          transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                          className="md:hidden fixed inset-x-0 bottom-0 z-[200] bg-background border-t border-border/50 rounded-t-3xl shadow-2xl overflow-hidden pb-safe max-h-[90vh] flex flex-col"
-                        >
-                          {/* Drag Handle Area */}
-                          <div className="w-full flex justify-center pt-3 pb-2" onClick={() => navigate(-1)}>
-                            <div className="w-12 h-1.5 bg-muted rounded-full" />
-                          </div>
-
-                          <div className="flex items-center justify-between px-4 pb-2 border-b border-border/20 shrink-0">
-                            <h2 className="text-lg font-bold">Nueva publicación</h2>
-                            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full h-8 w-8">
-                              <XIcon className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          
-                          <div className="p-4 overflow-y-auto overscroll-contain flex-1">
-                            <CreatePost 
-                              onPost={async (content, tags) => {
-                                if (!session?.access_token) return;
-                                await api('/publications', {
-                                  method: 'POST',
-                                  body: JSON.stringify({ content, tags }),
-                                  token: session.access_token,
-                                });
-                                // Refresh feed and close modal
-                                setPage(1);
-                                setHasMore(true);
-                                fetchPublications(1, false);
-                                navigate(-1);
-                              }}
-                            />
-                          </div>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>,
-                  document.body
+      {/* Publications */}
+      <div className="pb-20">
+        {loading ? (
+          <FeedSkeleton />
+        ) : publications.length === 0 ? (
+          <div className="text-center py-16">
+            <UsersIcon className="h-10 w-10 mx-auto mb-4 text-muted-foreground/30" />
+            <p className="text-muted-foreground">No hay publicaciones aún</p>
+          </div>
+        ) : (
+          <>
+            {publications.map((publication, idx) => (
+              <div key={publication.id}>
+                <PublicationCard
+                  publication={publication}
+                  currentUserId={user?.id}
+                  onLike={handleLike}
+                  onDelete={handleDelete}
+                />
+                {/* Insert widget cards at specific positions */}
+                {idx === 1 && (widgetsLoading ? (
+                  <WidgetSkeleton height="h-28" />
+                ) : newUsers.length > 0 ? (
+                  <NewUsersCard users={newUsers} />
+                ) : null)}
+                {idx === 2 && (widgetsLoading ? (
+                  <WidgetSkeleton height="h-40" />
+                ) : rankingUsers.length > 0 ? (
+                  <RankingCard users={rankingUsers} />
+                ) : null)}
+                {idx === 5 && (widgetsLoading ? (
+                  <WidgetSkeleton height="h-44" />
+                ) : professors.length > 0 ? (
+                  <ProfessorSuggestionCard professors={professors} />
+                ) : null)}
+                {idx === 9 && (widgetsLoading ? (
+                  <WidgetSkeleton height="h-40" />
+                ) : tutoringOffers.length > 0 ? (
+                  <TutoringCard offers={tutoringOffers} />
+                ) : null)}
+                {idx === 13 && profile && (
+                  <StreakCard reputation={profile.reputation || 0} fullName={profile.full_name || ''} />
                 )}
+              </div>
+            ))}
 
-                <div className="space-y-4 pb-20">
-                  {publications.map((publication) => (
-                <div
-                      key={publication.id}
-                      className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 bg-card border border-border shadow-sm"
-                    >
-                      <div className="relative p-4 md:p-6">
-                        <div className="flex justify-between mb-3 md:mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 md:h-12 md:w-12 rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 shadow-inner p-0.5">
-                              {publication.author.avatar_url ? (
-                                <img
-                                  src={publication.author.avatar_url}
-                                  className="h-full w-full rounded-full object-cover"
-                                />
-                              ) : (
-                                <UserIcon className="h-5 w-5 md:h-6 md:w-6 m-auto text-primary" />
-                              )}
-                            </div>
-
-                            <div>
-                              <p className="font-semibold">
-                                {publication.author.full_name}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(
-                                  publication.created_at
-                                ).toLocaleDateString("es-MX")}
-                              </p>
-                            </div>
-                          </div>
-
-                          {publication.author.id === user?.id && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDelete(publication.id)}
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-
-                        <p className="mb-3">{publication.content}</p>
-
-                        {publication.tags?.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mb-4">
-                            {publication.tags.map((tag, i) => (
-                              <span
-                                key={i}
-                                className="text-sm bg-primary/10 text-primary px-2 py-1 rounded-full"
-                              >
-                                #{tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Interaction Buttons at the bottom */}
-                        <div className="flex items-center gap-1 pt-3 border-t border-border/50">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleLike(publication.id)}
-                              className="flex-1 text-xs md:text-sm text-muted-foreground hover:text-primary px-2"
-                            >
-                              <ThumbsUpIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-                              {publication.likes_count} <span className="hidden sm:inline">Me gusta</span>
-                            </Button>
-                            
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="flex-1 text-xs md:text-sm text-muted-foreground hover:text-primary px-2"
-                            >
-                              <MessageCircleIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-                              <span className="hidden sm:inline">Comentar</span><span className="sm:hidden">Comentar</span>
-                            </Button>
-                            
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="flex-1 text-xs md:text-sm text-muted-foreground hover:text-primary px-2"
-                            >
-                              <SendIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-                              <span className="hidden sm:inline">Enviar</span><span className="sm:hidden">Enviar</span>
-                            </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  <div ref={sentinelRef} className="text-center py-8">
-                    {loadingMore && (
-                      <RefreshCwIcon className="h-6 w-6 animate-spin mx-auto" />
-                    )}
-
-                    {!hasMore && (
-                      <p className="text-sm text-muted-foreground">
-                        Has llegado al final del feed
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </PullToRefresh>
-        </div>
+            {/* Sentinel for infinite scroll */}
+            <div ref={sentinelRef} className="py-6 text-center">
+              {loadingMore && (
+                <div className="h-6 w-6 animate-spin rounded-full border-3 border-primary border-t-transparent mx-auto" />
+              )}
+              {!hasMore && publications.length > 0 && (
+                <p className="text-xs text-muted-foreground">No hay más publicaciones</p>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -23,7 +23,7 @@ interface SidebarProps {
 
 const navItems = [
     { to: '/feed', icon: HomeIcon, label: 'Feed' },
-    { to: '/search', icon: SearchIcon, label: 'Buscar' },
+    { to: '/search', icon: SearchIcon, label: 'Explorar' },
     { to: '/professors', icon: GraduationCapIcon, label: 'Profesores' },
     { to: '/tutoring', icon: BookOpenIcon, label: 'Tutorías' },
     { to: '/messages', icon: MessageCircleIcon, label: 'Mensajes' },

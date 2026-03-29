@@ -11,33 +11,33 @@ export const NeonBackground = memo(function NeonBackground() {
     const isLanding = location.pathname === '/';
 
     if (isLanding) {
-        // Classic Landing Page Orbs: Large, bright, using raw Tailwind classes + heavy blur
+        // Landing Page Orbs: Soft ambient glow, very subtle on mobile
         return (
             <div
                 aria-hidden="true"
-                className="fixed inset-0 z-0 pointer-events-none overflow-hidden"
+                className="fixed inset-0 z-0 pointer-events-none overflow-hidden opacity-40 md:opacity-50 dark:opacity-30"
             >
                 {/* Orb 1 — Top Left */}
-                <div 
-                    className="absolute -left-[10%] -top-[10%] h-[600px] w-[600px] rounded-full bg-primary/20 dark:bg-primary/10 blur-3xl opacity-80"
+                <div
+                    className="absolute -left-[10%] -top-[10%] h-[250px] w-[250px] md:h-[500px] md:w-[500px] rounded-full bg-primary/6 md:bg-primary/10 blur-3xl"
                     style={{ animation: 'orb-float-1 28s ease-in-out infinite' }}
                 />
-                
+
                 {/* Orb 2 — Bottom Right */}
-                <div 
-                    className="absolute -right-[10%] -bottom-[10%] h-[600px] w-[600px] rounded-full bg-[oklch(0.65_0.22_300)]/20 dark:bg-[oklch(0.65_0.22_300)]/10 blur-3xl opacity-80"
+                <div
+                    className="absolute -right-[10%] -bottom-[10%] h-[250px] w-[250px] md:h-[500px] md:w-[500px] rounded-full bg-[oklch(0.65_0.22_300)]/4 md:bg-[oklch(0.65_0.22_300)]/8 blur-3xl"
                     style={{ animation: 'orb-float-2 36s ease-in-out infinite' }}
                 />
-                
+
                 {/* Orb 3 — Right Side */}
-                <div 
-                    className="absolute right-[10%] top-[30%] h-[400px] w-[400px] rounded-full bg-[oklch(0.70_0.22_0)]/10 dark:bg-[oklch(0.70_0.22_0)]/10 blur-3xl opacity-70"
+                <div
+                    className="hidden md:block absolute right-[10%] top-[30%] h-[350px] w-[350px] rounded-full bg-[oklch(0.70_0.22_0)]/5 blur-3xl"
                     style={{ animation: 'orb-float-3 44s ease-in-out infinite' }}
                 />
-                
+
                 {/* Orb 4 — Bottom Left */}
-                <div 
-                    className="absolute -left-[5%] bottom-[10%] h-[300px] w-[300px] rounded-full bg-[oklch(0.72_0.18_200)]/15 dark:bg-[oklch(0.72_0.18_200)]/10 blur-3xl opacity-60"
+                <div
+                    className="hidden md:block absolute -left-[5%] bottom-[10%] h-[250px] w-[250px] rounded-full bg-[oklch(0.72_0.18_200)]/6 blur-3xl"
                     style={{ animation: 'orb-float-1 52s ease-in-out infinite reverse' }}
                 />
             </div>

@@ -8,14 +8,19 @@ import { RegisterPage } from '@/pages/RegisterPage';
 import { FeedPage } from '@/pages/FeedPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { TermsPage } from '@/pages/TermsPage';
+import { PrivacyPage } from '@/pages/PrivacyPage';
+import { GuidelinesPage } from '@/pages/GuidelinesPage';
+import { RankingPage } from '@/pages/RankingPage';
 import { SearchPage } from '@/pages/SearchPage';
 import { ProfessorsPage } from '@/pages/ProfessorsPage';
 import { ProfessorDetailPage } from '@/pages/ProfessorDetailPage';
 import { TutoringPage } from '@/pages/TutoringPage';
+import { ResourcesPage } from '@/pages/ResourcesPage';
 import { RoadmapPage } from '@/pages/RoadmapPage';
 import { FriendsPage } from '@/pages/FriendsPage';
 import { MessagesPage } from '@/pages/MessagesPage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { OnboardingPage } from '@/pages/OnboardingPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import type { ReactNode } from 'react';
@@ -85,7 +90,12 @@ export function App() {
                         <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
                         <Route path="/messages/:userId" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
                         <Route path="/notifications" element={<ProtectedPage><NotificationsPage /></ProtectedPage>} />
+                        <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
+                        <Route path="/rankings" element={<ProtectedPage><RankingPage /></ProtectedPage>} />
+                        <Route path="/settings" element={<ProtectedPage><SettingsPage /></ProtectedPage>} />
                         <Route path="/terms" element={<TermsPage />} />
+                        <Route path="/privacy" element={<PrivacyPage />} />
+                        <Route path="/guidelines" element={<GuidelinesPage />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </AuthProvider>

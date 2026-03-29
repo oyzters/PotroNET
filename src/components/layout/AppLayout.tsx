@@ -19,7 +19,7 @@ export function AppLayout({ children, hideRightPanel = false }: AppLayoutProps) 
     return (
         <div className="min-h-screen relative">
             <Navbar />
-            <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] overflow-y-auto pb-[4.5rem] md:pb-0">
+            <div className="h-screen md:h-[calc(100vh-4rem)] overflow-y-auto pb-[4.5rem] md:pb-0">
                 <div className="hidden md:block">
                     <Sidebar
                         isOpen={false}

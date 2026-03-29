@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,7 @@ import {
     BellIcon, UserPlusIcon, MessageCircleIcon, StarIcon,
     TrophyIcon, AlertCircleIcon, BookOpenIcon, CheckCheckIcon
 } from 'lucide-react';
+import { ListSkeleton } from '@/components/ui/Skeleton';
 
 interface Notification {
     id: string; type: string; title: string; body: string;
@@ -20,6 +22,7 @@ interface NotificationsResponse {
 }
 
 const TYPE_ICONS: Record<string, typeof BellIcon> = {
+    follow: UserPlusIcon,
     friend_request: UserPlusIcon,
     friend_accepted: UserPlusIcon,
     message: MessageCircleIcon,
@@ -30,13 +33,31 @@ const TYPE_ICONS: Record<string, typeof BellIcon> = {
     publication_reply: MessageCircleIcon,
 };
 
+function timeAgo(dateStr: string): string {
+    const now = Date.now();
+    const then = new Date(dateStr).getTime();
+    const diffMs = now - then;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'ahora';
+    if (diffMin < 60) return `hace ${diffMin}m`;
+    const diffHrs = Math.floor(diffMin / 60);
+    if (diffHrs < 24) return `hace ${diffHrs}h`;
+    const diffDays = Math.floor(diffHrs / 24);
+    if (diffDays < 7) return `hace ${diffDays}d`;
+    return new Date(dateStr).toLocaleDateString('es-MX', {
+        day: 'numeric', month: 'short', year: 'numeric',
+    });
+}
+
 export function NotificationsPage() {
     const { session } = useAuth();
+    const navigate = useNavigate();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unread, setUnread] = useState(0);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [followingBack, setFollowingBack] = useState<Set<string>>(new Set());
 
     const fetchNotifications = useCallback(async () => {
         if (!session?.access_token) return;
@@ -69,13 +90,49 @@ export function NotificationsPage() {
         } catch { /* silent */ }
     };
 
+    const handleNotificationClick = async (n: Notification) => {
+        if (!n.is_read) await markAsRead(n.id);
+
+        switch (n.type) {
+            case 'follow':
+                navigate('/friends?tab=followers');
+                break;
+            case 'friend_accepted':
+                navigate(`/profile/${n.reference_id}`);
+                break;
+            case 'message':
+                navigate(`/messages/${n.reference_id}`);
+                break;
+            case 'publication_reply':
+                navigate('/feed');
+                break;
+            case 'achievement':
+                navigate('/profile');
+                break;
+            default:
+                break;
+        }
+    };
+
+    const handleFollowBack = async (e: React.MouseEvent, notificationId: string) => {
+        e.stopPropagation();
+        if (!session?.access_token) return;
+        try {
+            await api('/follows', {
+                method: 'POST',
+                token: session.access_token,
+                body: JSON.stringify({ following_id: notificationId }),
+            });
+            setFollowingBack(prev => new Set(prev).add(notificationId));
+        } catch { /* silent */ }
+    };
+
     return (
         <div className="min-h-screen">
             {/* Hero Section */}
             <SectionHeader
                 title="Notificaciones"
                 subtitle="Manténte al día con todas las actualizaciones de tu comunidad académica."
-                accentLabel="Centro de alertas"
             >
                 {unread > 0 && (
                     <Button
@@ -93,9 +150,7 @@ export function NotificationsPage() {
             <div className="px-4 md:px-8 pb-8">
                 <div className="max-w-4xl mx-auto">
                     {loading ? (
-                        <div className="flex justify-center py-16">
-                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                        </div>
+                        <ListSkeleton count={6} />
                     ) : notifications.length === 0 ? (
                         <div className="text-center py-16">
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-muted/20 rounded-full mb-6">
@@ -111,18 +166,18 @@ export function NotificationsPage() {
                             {notifications.map(n => {
                                 const Icon = TYPE_ICONS[n.type] || BellIcon;
                                 return (
-                                    <div 
-                                        key={n.id} 
+                                    <div
+                                        key={n.id}
                                         className={`bg-card/40 backdrop-blur-sm border border-border/30 rounded-xl p-4 hover:bg-card/60 transition-all cursor-pointer ${
                                             !n.is_read ? 'ring-2 ring-primary/20 border-primary/30' : ''
                                         }`}
-                                        onClick={() => !n.is_read && markAsRead(n.id)}
+                                        onClick={() => handleNotificationClick(n)}
                                     >
                                         <div className="flex items-start gap-4">
                                             {/* Icon */}
                                             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                                                !n.is_read 
-                                                    ? 'bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30' 
+                                                !n.is_read
+                                                    ? 'bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30'
                                                     : 'bg-muted/50 border border-border/50'
                                             }`}>
                                                 <Icon className={`h-5 w-5 ${!n.is_read ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -139,20 +194,32 @@ export function NotificationsPage() {
                                                             <p className="text-muted-foreground text-xs leading-relaxed">{n.body}</p>
                                                         )}
                                                     </div>
-                                                    {!n.is_read && (
-                                                        <Badge className="shrink-0 ml-2 px-1.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground">
-                                                            Nuevo
-                                                        </Badge>
-                                                    )}
+                                                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                                                        {n.type === 'follow' && !followingBack.has(n.reference_id) && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="rounded-full text-xs px-3 h-7"
+                                                                onClick={(e) => handleFollowBack(e, n.reference_id)}
+                                                            >
+                                                                Seguir de vuelta
+                                                            </Button>
+                                                        )}
+                                                        {n.type === 'follow' && followingBack.has(n.reference_id) && (
+                                                            <Badge className="rounded-full px-2 py-0.5 text-xs bg-green-500/20 text-green-600 border-green-500/30">
+                                                                Siguiendo
+                                                            </Badge>
+                                                        )}
+                                                        {!n.is_read && (
+                                                            <Badge className="px-1.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground">
+                                                                Nuevo
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                     <BellIcon className="h-3 w-3" />
-                                                    <span>{new Date(n.created_at).toLocaleDateString('es-MX', { 
-                                                        day: 'numeric', 
-                                                        month: 'short', 
-                                                        hour: '2-digit', 
-                                                        minute: '2-digit' 
-                                                    })}</span>
+                                                    <span>{timeAgo(n.created_at)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -165,20 +232,20 @@ export function NotificationsPage() {
                     {/* Pagination */}
                     {totalPages > 1 && (
                         <div className="flex justify-center gap-2 pt-8">
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                disabled={page === 1} 
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === 1}
                                 onClick={() => setPage(page - 1)}
                                 className="rounded-full border-border/50"
                             >
                                 Anterior
                             </Button>
                             <span className="flex items-center text-sm text-muted-foreground px-3">{page} / {totalPages}</span>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                disabled={page === totalPages} 
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === totalPages}
                                 onClick={() => setPage(page + 1)}
                                 className="rounded-full border-border/50"
                             >
