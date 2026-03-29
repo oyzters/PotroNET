@@ -127,7 +127,7 @@ export function RegisterPage() {
                                             <input
                                                 id="reg-email"
                                                 type="text"
-                                                placeholder="sebastian.escalante252321"
+                                                placeholder="tu.nombreID"
                                                 value={username}
                                                 onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
                                                 required

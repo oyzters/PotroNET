@@ -1,10 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { SectionHeader } from '@/components/ui/SectionHeader';
 import { SearchIcon, UserIcon, GraduationCapIcon, BookOpenIcon, StarIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -12,12 +9,16 @@ interface SearchResults {
     users?: Array<{ id: string; full_name: string; avatar_url: string; email: string; career: { id: string; name: string } | null }>;
     professors?: Array<{ id: string; full_name: string; department: string; avg_rating: number; total_reviews: number; career: { id: string; name: string } | null }>;
     resources?: Array<{ id: string; title: string; resource_type: string; subject_name: string; career: { id: string; name: string } | null }>;
-    tutoring?: Array<{ id: string; subject_name: string; description: string; tutor: { id: string; full_name: string } }>;
-    posts?: Array<any>;
-    hashtags?: Array<any>;
+    tutoring?: Array<{ id: string; subject_name: string; description: string; tutor: { id: string; full_name: string; avatar_url?: string } }>;
 }
 
-type TabKey = 'students' | 'professors' | 'posts' | 'subjects' | 'hashtags';
+type TabKey = 'students' | 'professors' | 'tutoring';
+
+interface ExploreData {
+    professors: SearchResults['professors'];
+    tutoring: SearchResults['tutoring'];
+    users: SearchResults['users'];
+}
 
 export function SearchPage() {
     const { session } = useAuth();
@@ -25,231 +26,267 @@ export function SearchPage() {
     const [results, setResults] = useState<SearchResults | null>(null);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<TabKey>('students');
+    const [explore, setExplore] = useState<ExploreData>({ professors: [], tutoring: [], users: [] });
+    const [loadingExplore, setLoadingExplore] = useState(false);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const handleSearch = async () => {
-        if (!session?.access_token || query.trim().length < 2) return;
+    useEffect(() => {
+        if (!session?.access_token) return;
+        setLoadingExplore(true);
+        const token = session.access_token;
+        Promise.all([
+            api<SearchResults>(`/search?q=a`, { token }).catch(() => ({} as SearchResults)),
+        ]).then(([searchData]) => {
+            const sortedProfs = [...(searchData.professors || [])].sort((a, b) => Number(b.avg_rating) - Number(a.avg_rating)).slice(0, 8);
+            setExplore({
+                professors: sortedProfs,
+                tutoring: (searchData.tutoring || []).slice(0, 8),
+                users: (searchData.users || []).slice(0, 8),
+            });
+        }).finally(() => setLoadingExplore(false));
+    }, [session?.access_token]);
+
+    const performSearch = useCallback(async (q: string) => {
+        if (!session?.access_token || q.trim().length < 2) return;
         setLoading(true);
         try {
-            const data = await api<SearchResults>(`/search?q=${encodeURIComponent(query.trim())}`, {
+            const data = await api<SearchResults>(`/search?q=${encodeURIComponent(q.trim())}`, {
                 token: session.access_token,
             });
             setResults(data);
+            // Auto-select first tab with results
+            if (data.users && data.users.length > 0) setActiveTab('students');
+            else if (data.professors && data.professors.length > 0) setActiveTab('professors');
+            else if (data.tutoring && data.tutoring.length > 0) setActiveTab('tutoring');
         } catch {
             // Silent error
         } finally {
             setLoading(false);
+        }
+    }, [session?.access_token]);
+
+    const handleInputChange = (value: string) => {
+        setQuery(value);
+        if (value.trim().length === 0) {
+            setResults(null);
+            return;
+        }
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => performSearch(value), 300);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            performSearch(query);
         }
     };
 
     const tabs: { key: TabKey; label: string; count: number }[] = [
         { key: 'students', label: 'Estudiantes', count: results?.users?.length || 0 },
         { key: 'professors', label: 'Profesores', count: results?.professors?.length || 0 },
-        { key: 'posts', label: 'Publicaciones', count: results?.posts?.length || 0 },
-        { key: 'subjects', label: 'Materias', count: results?.resources?.length || 0 },
-        { key: 'hashtags', label: 'Hashtags', count: results?.hashtags?.length || 0 },
+        { key: 'tutoring', label: 'Tutorías', count: results?.tutoring?.length || 0 },
     ];
 
-    const typeLabels: Record<string, string> = { pdf: 'PDF', resumen: 'Resumen', presentacion: 'Presentación', guia: 'Guía', examen: 'Examen', otro: 'Otro' };
+    const visibleTabs = tabs.filter(t => t.count > 0);
+    const showExplore = !results && query.trim().length === 0;
 
-    const isEmpty = () => {
-        if (!results) return false;
-        if (activeTab === 'posts' && (!results.posts || results.posts.length === 0)) return true;
-        if (activeTab === 'hashtags' && (!results.hashtags || results.hashtags.length === 0)) return true;
-        if (activeTab === 'students' && (!results.users || results.users.length === 0)) return true;
-        if (activeTab === 'professors' && (!results.professors || results.professors.length === 0)) return true;
-        if (activeTab === 'subjects' && (!results.resources || results.resources.length === 0)) return true;
-        return false;
-    };
+    const noResults = results && (results.users?.length || 0) === 0 && (results.professors?.length || 0) === 0 && (results.tutoring?.length || 0) === 0;
 
     return (
-        <div className="min-h-screen">
-            {/* Mobile Quick Access - Only visible on mobile */}
-            <div className="md:hidden px-4 pt-4 pb-0">
-                <div className="grid grid-cols-2 gap-3">
-                    <Link to="/professors" className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm hover:shadow-md transition-all group">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <GraduationCapIcon className="h-5 w-5 text-amber-500" />
-                        </div>
-                        <span className="font-semibold text-sm text-foreground">Profesores</span>
-                        <span className="text-[11px] text-muted-foreground mt-1 text-center">Explora docentes</span>
-                    </Link>
-                    <Link to="/tutoring" className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm hover:shadow-md transition-all group">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                            <BookOpenIcon className="h-5 w-5 text-emerald-500" />
-                        </div>
-                        <span className="font-semibold text-sm text-foreground">Tutorías</span>
-                        <span className="text-[11px] text-muted-foreground mt-1 text-center">Ayuda académica</span>
-                    </Link>
-                </div>
-            </div>
-
-            {/* Hero Section */}
-            <SectionHeader
-                title="Descubre en PotroNET"
-                subtitle="Busca estudiantes, profesores, recursos y mucho más. Encuentra exactamente lo que necesitas."
-                accentLabel="Explorar"
-            />
-
+        <div className="min-h-screen pb-4">
             {/* Search Bar */}
-            <div className="px-4 md:px-8 pb-6">
-                <div className="max-w-2xl mx-auto relative group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all"></div>
-                    <div className="relative bg-background border border-border/50 rounded-2xl shadow-lg hover:shadow-xl transition-all">
-                        <div className="flex items-center">
-                            <div className="pl-4 pr-3">
-                                <SearchIcon className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                            <Input
-                                placeholder="Busca estudiantes, profesores, materias..."
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm md:text-base py-3 pl-2 pr-0 w-full"
-                            />
-                            {loading && (
-                                <div className="pr-4">
-                                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                </div>
-                            )}
+            <div className="px-4 pt-4 pb-2">
+                <div className="relative flex items-center bg-muted/50 rounded-xl">
+                    <SearchIcon className="absolute left-3 h-5 w-5 text-muted-foreground pointer-events-none" />
+                    <Input
+                        placeholder="Buscar en PotroNET..."
+                        value={query}
+                        onChange={(e) => handleInputChange(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm pl-10 pr-10 py-3 w-full rounded-xl"
+                    />
+                    {loading && (
+                        <div className="absolute right-3">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
-                    </div>
-                    
-                    {/* Search Suggestions */}
-                    <div className="mt-4 flex flex-wrap justify-center gap-2">
-                        {['Ingeniería', 'Matemáticas', 'Física', 'Programación'].map((suggestion) => (
-                            <button
-                                key={suggestion}
-                                onClick={() => setQuery(suggestion)}
-                                className="px-3 py-1 text-xs bg-muted/60 hover:bg-muted rounded-full transition-colors"
-                            >
-                                {suggestion}
-                            </button>
-                        ))}
-                    </div>
+                    )}
                 </div>
             </div>
 
-            {/* Filter Pills */}
-            {results && (
-                <div className="px-4 md:px-8 pb-6">
-                    <div className="max-w-4xl mx-auto">
-                        <div className="flex flex-wrap gap-2 justify-center">
-                            {tabs.map((tab) => (
+            {/* Explore Mode */}
+            {showExplore && (
+                <div className="pt-2 space-y-6">
+                    {/* Profesores destacados */}
+                    <ExploreSection title="Profesores destacados" linkTo="/professors" loading={loadingExplore}>
+                        {(explore.professors && explore.professors.length > 0) ? (
+                            <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-4 pb-2">
+                                {explore.professors.map((p) => (
+                                    <Link to={`/professors/${p.id}`} key={p.id} className="snap-start shrink-0 w-20 flex flex-col items-center text-center">
+                                        <div className="relative">
+                                            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                                                <GraduationCapIcon className="h-7 w-7 text-white" />
+                                            </div>
+                                            <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
+                                                {Number(p.avg_rating).toFixed(1)}
+                                            </div>
+                                        </div>
+                                        <p className="text-xs font-medium mt-1.5 line-clamp-2 leading-tight">{p.full_name}</p>
+                                    </Link>
+                                ))}
+                            </div>
+                        ) : !loadingExplore ? (
+                            <p className="text-muted-foreground text-sm px-4">No hay profesores destacados aún.</p>
+                        ) : null}
+                    </ExploreSection>
+
+                    {/* Tutorías disponibles */}
+                    <ExploreSection title="Tutorías disponibles" linkTo="/tutoring" loading={loadingExplore}>
+                        {(explore.tutoring && explore.tutoring.length > 0) ? (
+                            <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-4 pb-2">
+                                {explore.tutoring.map((t) => (
+                                    <Link to={`/profile/${t.tutor.id}`} key={t.id} className="snap-start shrink-0 w-28 flex flex-col items-center text-center">
+                                        <div className="h-14 w-14 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                                            {t.tutor.avatar_url ? (
+                                                <img src={t.tutor.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+                                            ) : (
+                                                <BookOpenIcon className="h-6 w-6 text-white" />
+                                            )}
+                                        </div>
+                                        <p className="text-xs font-medium mt-1.5 line-clamp-1 leading-tight">{t.subject_name}</p>
+                                        <p className="text-[11px] text-muted-foreground line-clamp-1">{t.tutor.full_name}</p>
+                                    </Link>
+                                ))}
+                            </div>
+                        ) : !loadingExplore ? (
+                            <p className="text-muted-foreground text-sm px-4">No hay tutorías disponibles aún.</p>
+                        ) : null}
+                    </ExploreSection>
+
+                    {/* Usuarios populares */}
+                    <ExploreSection title="Usuarios populares" linkTo="/rankings" loading={loadingExplore}>
+                        {(explore.users && explore.users.length > 0) ? (
+                            <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-4 pb-2">
+                                {explore.users.map((u) => (
+                                    <Link to={`/profile/${u.id}`} key={u.id} className="snap-start shrink-0 w-20 flex flex-col items-center text-center">
+                                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-primary/20">
+                                            {u.avatar_url ? (
+                                                <img src={u.avatar_url} alt="" className="h-full w-full object-cover" />
+                                            ) : (
+                                                <UserIcon className="h-7 w-7 text-primary" />
+                                            )}
+                                        </div>
+                                        <p className="text-xs font-medium mt-1.5 line-clamp-2 leading-tight">{u.full_name}</p>
+                                    </Link>
+                                ))}
+                            </div>
+                        ) : !loadingExplore ? (
+                            <p className="text-muted-foreground text-sm px-4">Pronto verás usuarios populares aquí.</p>
+                        ) : null}
+                    </ExploreSection>
+                </div>
+            )}
+
+            {/* Results Mode */}
+            {results && !noResults && (
+                <div className="pt-2">
+                    {/* Tab bar */}
+                    {visibleTabs.length > 1 && (
+                        <div className="flex gap-1 px-4 pb-3">
+                            {visibleTabs.map((tab) => (
                                 <button
                                     key={tab.key}
                                     onClick={() => setActiveTab(tab.key)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                                        activeTab === tab.key 
-                                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' 
-                                            : 'bg-muted/60 hover:bg-muted text-foreground'
+                                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                        activeTab === tab.key
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'bg-muted/60 text-muted-foreground hover:bg-muted'
                                     }`}
                                 >
                                     {tab.label}
-                                    {tab.count > 0 && (
-                                        <span className="ml-2 bg-background/20 px-2 py-0.5 rounded-full text-xs">
-                                            {tab.count}
-                                        </span>
-                                    )}
                                 </button>
                             ))}
                         </div>
-                    </div>
-                </div>
-            )}
+                    )}
 
-            {/* Results Section */}
-            {results && (
-                <div className="px-4 md:px-8 pb-8">
-                    <div className="max-w-4xl mx-auto">
-                        <div className="space-y-4">
-                            {activeTab === 'students' && results.users?.map((u) => (
-                                <Link to={`/profile/${u.id}`} key={u.id}>
-                                    <div className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-6 hover:bg-card/60 transition-all group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="relative">
-                                                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-primary/20 group-hover:border-primary/40 transition-colors">
-                                                    {u.avatar_url ? <img src={u.avatar_url} alt="" className="h-full w-full object-cover" /> : <UserIcon className="h-7 w-7 text-primary" />}
-                                                </div>
-                                                <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-background"></div>
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="font-semibold text-lg">{u.full_name}</p>
-                                                <p className="text-muted-foreground text-sm">{u.career?.name || u.email}</p>
-                                            </div>
-                                            <Button className="rounded-full px-6">
-                                                Ver perfil
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-
-                            {activeTab === 'professors' && results.professors?.map((p) => (
-                                <Link to={`/professors/${p.id}`} key={p.id}>
-                                    <div className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-6 hover:bg-card/60 transition-all group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-14 w-14 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                                                <GraduationCapIcon className="h-7 w-7 text-white" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="font-semibold text-lg">{p.full_name}</p>
-                                                <p className="text-muted-foreground text-sm">{p.department}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="flex items-center gap-1 justify-end">
-                                                    <StarIcon className="h-4 w-4 fill-amber-500 text-amber-500" />
-                                                    <span className="font-semibold">{Number(p.avg_rating).toFixed(1)}</span>
-                                                    <span className="text-muted-foreground text-sm">({p.total_reviews})</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-
-                            {activeTab === 'subjects' && results.resources?.map((r) => (
-                                <div key={r.id} className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-6 hover:bg-card/60 transition-all cursor-pointer">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                                            <BookOpenIcon className="h-7 w-7 text-white" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="font-semibold text-lg">{r.title}</p>
-                                            <p className="text-muted-foreground text-sm">{r.subject_name}</p>
-                                        </div>
-                                        <Badge className="rounded-full px-3">{typeLabels[r.resource_type] || r.resource_type}</Badge>
-                                    </div>
+                    {/* Flat result list */}
+                    <div className="px-4">
+                        {activeTab === 'students' && results.users?.map((u) => (
+                            <Link to={`/profile/${u.id}`} key={u.id} className="flex items-center gap-3 py-3 border-b border-border/50">
+                                <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                                    {u.avatar_url ? <img src={u.avatar_url} alt="" className="h-full w-full object-cover" /> : <UserIcon className="h-5 w-5 text-primary" />}
                                 </div>
-                            ))}
-
-                            {isEmpty() && (
-                                <div className="text-center py-16">
-                                    <div className="inline-flex items-center justify-center w-20 h-20 bg-muted/20 rounded-full mb-4">
-                                        <SearchIcon className="h-10 w-10 text-muted-foreground/50" />
-                                    </div>
-                                    <h3 className="text-xl font-semibold mb-2">No se encontraron resultados</h3>
-                                    <p className="text-muted-foreground">Intenta con otros términos o explora diferentes categorías.</p>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">{u.full_name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{u.career?.name || u.email}</p>
                                 </div>
-                            )}
-                        </div>
+                            </Link>
+                        ))}
+
+                        {activeTab === 'professors' && results.professors?.map((p) => (
+                            <Link to={`/professors/${p.id}`} key={p.id} className="flex items-center gap-3 py-3 border-b border-border/50">
+                                <div className="h-11 w-11 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0">
+                                    <GraduationCapIcon className="h-5 w-5 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">{p.full_name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{p.department}</p>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                    <StarIcon className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                                    <span className="text-sm font-medium">{Number(p.avg_rating).toFixed(1)}</span>
+                                </div>
+                            </Link>
+                        ))}
+
+                        {activeTab === 'tutoring' && results.tutoring?.map((t) => (
+                            <Link to={`/profile/${t.tutor.id}`} key={t.id} className="flex items-center gap-3 py-3 border-b border-border/50">
+                                <div className="h-11 w-11 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0">
+                                    <BookOpenIcon className="h-5 w-5 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">{t.subject_name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">Tutor: {t.tutor.full_name}</p>
+                                </div>
+                            </Link>
+                        ))}
                     </div>
                 </div>
             )}
 
-            {/* Empty State - Before Search */}
-            {!results && (
-                <div className="px-4 md:px-8 pb-8">
-                    <div className="max-w-4xl mx-auto text-center py-12">
-                        <div className="inline-flex items-center justify-center w-24 h-24 bg-muted/20 rounded-full mb-6">
-                            <SearchIcon className="h-12 w-12 text-muted-foreground/50" />
-                        </div>
-                        <h3 className="text-2xl font-bold mb-3">Comienza tu búsqueda</h3>
-                        <p className="text-muted-foreground max-w-md mx-auto">
-                            Encuentra estudiantes, profesores, recursos académicos y mucho más. Todo lo que necesitas está aquí.
-                        </p>
+            {/* No results */}
+            {noResults && (
+                <div className="text-center py-16 px-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-muted/20 rounded-full mb-3">
+                        <SearchIcon className="h-8 w-8 text-muted-foreground/50" />
                     </div>
+                    <h3 className="text-lg font-semibold mb-1">No se encontraron resultados</h3>
+                    <p className="text-sm text-muted-foreground">Intenta con otros términos de búsqueda.</p>
                 </div>
             )}
+
+            {/* Typing but not enough chars */}
+            {!results && !showExplore && !loading && (
+                <div className="text-center py-16 px-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-muted/20 rounded-full mb-3">
+                        <SearchIcon className="h-8 w-8 text-muted-foreground/50" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-1">Busca en PotroNET</h3>
+                    <p className="text-sm text-muted-foreground">Escribe al menos 2 caracteres para buscar.</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ExploreSection({ title, linkTo, loading, children }: { title: string; linkTo: string; loading: boolean; children: React.ReactNode }) {
+    return (
+        <div>
+            <div className="flex items-center justify-between px-4 mb-2">
+                <h3 className="text-base font-semibold">{title}</h3>
+                <Link to={linkTo} className="text-sm text-primary font-medium">Ver todo</Link>
+            </div>
+            {loading ? null : children}
         </div>
     );
 }

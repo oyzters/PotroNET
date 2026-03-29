@@ -46,6 +46,7 @@ export function ProfessorDetailPage() {
     const [comment, setComment] = useState('');
     const [subjectName, setSubjectName] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [formMessage, setFormMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -65,6 +66,7 @@ export function ProfessorDetailPage() {
     const handleSubmit = async () => {
         if (!session?.access_token) return;
         setSubmitting(true);
+        setFormMessage(null);
         try {
             await api('/professors/reviews', {
                 method: 'POST', token: session.access_token,
@@ -77,7 +79,20 @@ export function ProfessorDetailPage() {
             setTopQualities(data.aggregated.topQualities);
             setTopWeaknesses(data.aggregated.topWeaknesses);
             setShowForm(false);
-        } catch { /* silent */ } finally { setSubmitting(false); }
+            setRatings({ teaching_quality: 0, clarity: 0, student_treatment: 0, exam_difficulty: 0 });
+            setSelectedQualities([]);
+            setSelectedWeaknesses([]);
+            setComment('');
+            setSubjectName('');
+            setFormMessage({ type: 'success', text: 'Tu evaluación fue enviada exitosamente.' });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Error al enviar la evaluación';
+            if (msg.toLowerCase().includes('ya evaluaste')) {
+                setFormMessage({ type: 'error', text: 'Ya calificaste a este profesor.' });
+            } else {
+                setFormMessage({ type: 'error', text: msg });
+            }
+        } finally { setSubmitting(false); }
     };
 
     const StarRating = ({ value, onChange, label }: { value: number; onChange: (v: number) => void; label: string }) => (
@@ -141,15 +156,27 @@ export function ProfessorDetailPage() {
                     </div>
                 </div>
 
-                <Button 
-                    onClick={() => setShowForm(!showForm)} 
-                    variant={showForm ? 'outline' : 'default'}
-                    className={`mt-8 w-full md:w-auto min-w-[200px] rounded-full h-11 font-semibold text-md transition-all ${
-                        !showForm ? 'shadow-neon-primary' : ''
-                    }`}
-                >
-                    {showForm ? 'Cerrar Formulario' : 'Evaluar Profesor'}
-                </Button>
+                {session && (
+                    <Button
+                        onClick={() => { setShowForm(!showForm); setFormMessage(null); }}
+                        variant={showForm ? 'outline' : 'default'}
+                        className={`mt-8 w-full md:w-auto min-w-[200px] rounded-full h-11 font-semibold text-md transition-all ${
+                            !showForm ? 'shadow-neon-primary' : ''
+                        }`}
+                    >
+                        {showForm ? 'Cerrar Formulario' : 'Evaluar Profesor'}
+                    </Button>
+                )}
+
+                {formMessage && (
+                    <div className={`mt-4 w-full md:w-auto rounded-lg px-4 py-3 text-sm font-medium ${
+                        formMessage.type === 'success'
+                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}>
+                        {formMessage.text}
+                    </div>
+                )}
             </div>
 
             {/* Review form */}
@@ -181,6 +208,11 @@ export function ProfessorDetailPage() {
                             ))}</div>
                         </div>
                         <Textarea placeholder="Comentario (opcional)" value={comment} onChange={e => setComment(e.target.value)} maxLength={500} />
+                        {formMessage && formMessage.type === 'error' && showForm && (
+                            <div className="rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 px-4 py-3 text-sm font-medium">
+                                {formMessage.text}
+                            </div>
+                        )}
                         <Button onClick={handleSubmit} disabled={submitting || Object.values(ratings).some(v => v === 0)}>
                             {submitting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : 'Enviar Evaluación'}
                         </Button>

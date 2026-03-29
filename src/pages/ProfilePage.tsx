@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { ProfileSkeleton, PostSkeleton } from '@/components/ui/Skeleton';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,9 @@ import {
     ImageIcon,
     CameraIcon,
     CheckIcon,
+    MapIcon,
+    ShieldCheckIcon,
+    MessageCircleIcon,
 } from 'lucide-react';
 import {
     Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
@@ -25,12 +29,15 @@ interface Profile {
     cover_url?: string; bio: string; career_id: string | null;
     semester: number; role: string; reputation: number; is_banned: boolean;
     interests: string[]; career: Career | null; created_at: string;
+    followers_count: number; following_count: number; friends_count: number;
 }
 interface Publication {
     id: string; content: string; tags: string[]; likes_count: number;
-    comments_count: number; created_at: string;
+    comments_count: number; created_at: string; user_liked?: boolean;
     author: { id: string; full_name: string; avatar_url: string; email: string };
 }
+interface Subject { id: string; name: string; semester: number; credits: number; career_id: string }
+interface UserSubject { id: string; subject_id: string; status: string; subject: Subject }
 
 // Comprime una imagen usando Canvas API (sin dependencias externas)
 async function compressImage(file: File, maxWidth: number, maxHeight: number, quality = 0.85): Promise<Blob> {
@@ -83,9 +90,17 @@ export function ProfilePage() {
 
     // Follow
     const isOwnProfile = user?.id === id;
-    const [followStatus, setFollowStatus] = useState<'none' | 'pending' | 'friends'>('none');
+    const [followStatus, setFollowStatus] = useState<'none' | 'following' | 'follows_you' | 'friends'>('none');
     const [followLoading, setFollowLoading] = useState(false);
     const [followCheckLoading, setFollowCheckLoading] = useState(true);
+
+    // Roadmap
+    const [roadmapSubjects, setRoadmapSubjects] = useState<Subject[]>([]);
+    const [roadmapStatuses, setRoadmapStatuses] = useState<Record<string, string>>({});
+    const [roadmapLoading, setRoadmapLoading] = useState(false);
+
+    // Avatar preview
+    const [avatarExpanded, setAvatarExpanded] = useState(false);
 
     // Image upload
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -130,7 +145,27 @@ export function ProfilePage() {
 
     useEffect(() => { if (tab === 'grid') fetchPosts(); }, [fetchPosts, tab]);
 
-    // Friend status
+    // Fetch roadmap when info tab opens
+    useEffect(() => {
+        if (tab !== 'info' || !session?.access_token || !id || !profile?.career_id) return;
+        if (roadmapSubjects.length > 0) return; // already fetched
+        const fetchRoadmap = async () => {
+            setRoadmapLoading(true);
+            try {
+                const [subjectsData, userSubjectsData] = await Promise.all([
+                    api<{ subjects: Subject[] }>(`/subjects?career_id=${profile.career_id}`, { token: session.access_token }),
+                    api<{ user_subjects: UserSubject[] }>(`/subjects/user?user_id=${id}`, { token: session.access_token }),
+                ]);
+                setRoadmapSubjects(subjectsData.subjects);
+                const statusMap: Record<string, string> = {};
+                userSubjectsData.user_subjects.forEach(us => { statusMap[us.subject_id] = us.status; });
+                setRoadmapStatuses(statusMap);
+            } catch { /* silent */ } finally { setRoadmapLoading(false); }
+        };
+        fetchRoadmap();
+    }, [tab, session?.access_token, id, profile?.career_id]);
+
+    // Follow status
     useEffect(() => {
         if (isOwnProfile || !session?.access_token || !id) {
             setFollowCheckLoading(false);
@@ -139,13 +174,10 @@ export function ProfilePage() {
         const check = async () => {
             setFollowCheckLoading(true);
             try {
-                const data = await api<{ friends: Array<{ status: string; receiver_id: string; requester_id: string }> }>(
-                    '/friends', { token: session.access_token }
+                const data = await api<{ status: 'none' | 'following' | 'follows_you' | 'friends' }>(
+                    `/follows/status/${id}`, { token: session.access_token }
                 );
-                const rel = (data.friends || []).find(f => f.receiver_id === id || f.requester_id === id);
-                if (!rel) setFollowStatus('none');
-                else if (rel.status === 'accepted') setFollowStatus('friends');
-                else setFollowStatus('pending');
+                setFollowStatus(data.status);
             } catch { /* silent */ } finally { setFollowCheckLoading(false); }
         };
         check();
@@ -155,8 +187,25 @@ export function ProfilePage() {
         if (!session?.access_token || !id) return;
         setFollowLoading(true);
         try {
-            await api('/friends', { method: 'POST', token: session.access_token, body: JSON.stringify({ receiver_id: id }) });
-            setFollowStatus('pending');
+            const data = await api<{ follow: unknown; is_friends: boolean }>(
+                '/follows', { method: 'POST', token: session.access_token, body: JSON.stringify({ following_id: id }) }
+            );
+            setFollowStatus(data.is_friends ? 'friends' : 'following');
+            // Refresh profile to get updated counters
+            const updated = await api<{ profile: Profile }>(`/profiles/${id}`, { token: session.access_token });
+            setProfile(updated.profile);
+        } catch { /* silent */ } finally { setFollowLoading(false); }
+    };
+
+    const handleUnfollow = async () => {
+        if (!session?.access_token || !id) return;
+        setFollowLoading(true);
+        try {
+            await api(`/follows/${id}`, { method: 'DELETE', token: session.access_token });
+            // If we were friends, now we only follows_you. If we were following, now none.
+            setFollowStatus(prev => prev === 'friends' ? 'follows_you' : 'none');
+            const updated = await api<{ profile: Profile }>(`/profiles/${id}`, { token: session.access_token });
+            setProfile(updated.profile);
         } catch { /* silent */ } finally { setFollowLoading(false); }
     };
 
@@ -173,6 +222,24 @@ export function ProfilePage() {
             setEditing(false);
             refreshProfile();
         } catch { /* silent */ } finally { setSaving(false); }
+    };
+
+    // Like a publication
+    const handleLike = async (publicationId: string) => {
+        if (!session?.access_token) return;
+        try {
+            const data = await api<{ liked: boolean }>(`/publications/${publicationId}/likes`, {
+                method: 'POST',
+                token: session.access_token,
+            });
+            setPosts(prev =>
+                prev.map(p =>
+                    p.id === publicationId
+                        ? { ...p, likes_count: p.likes_count + (data.liked ? 1 : -1), user_liked: data.liked }
+                        : p
+                )
+            );
+        } catch { /* silent */ }
     };
 
     // Subir imagen de avatar
@@ -231,11 +298,7 @@ export function ProfilePage() {
         e.target.value = '';
     };
 
-    if (loading) return (
-        <div className="flex justify-center py-20">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-    );
+    if (loading) return <ProfileSkeleton />;
     if (!profile) return (
         <div className="py-20 text-center">
             <UserIcon className="mx-auto h-12 w-12 text-muted-foreground/30" />
@@ -256,12 +319,36 @@ export function ProfilePage() {
                 onChange={e => onFileSelected(e)}
             />
 
+            {/* Avatar expanded overlay */}
+            {avatarExpanded && profile.avatar_url && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setAvatarExpanded(false)}
+                >
+                    <button
+                        onClick={() => setAvatarExpanded(false)}
+                        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+                    >
+                        <XIcon className="h-6 w-6" />
+                    </button>
+                    <img
+                        src={profile.avatar_url}
+                        alt={profile.full_name}
+                        className="max-h-[80vh] max-w-[90vw] rounded-2xl object-contain animate-in zoom-in-90 duration-200"
+                    />
+                </div>
+            )}
+
             {/* ── INFO BOXES (INSTAGRAM STYLE) ── */}
             <div className="px-4 py-2 bg-background pt-3 pb-0">
                 <div className="flex items-center justify-between mb-4">
                     {/* Avatar */}
                     <div className="relative h-20 w-20 shrink-0">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 p-0.5 overflow-hidden shadow-sm">
+                        <button
+                            type="button"
+                            onClick={() => profile.avatar_url && !uploadingAvatar && setAvatarExpanded(true)}
+                            className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 p-0.5 overflow-hidden shadow-sm cursor-pointer active:scale-95 transition-transform"
+                        >
                             <div className="h-full w-full rounded-full overflow-hidden bg-muted flex items-center justify-center">
                                 {uploadingAvatar ? (
                                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -271,7 +358,7 @@ export function ProfilePage() {
                                     <UserIcon className="h-8 w-8 text-primary" />
                                 )}
                             </div>
-                        </div>
+                        </button>
                         {isOwnProfile && !editing && (
                             <button
                                 onClick={() => avatarInputRef.current?.click()}
@@ -286,27 +373,38 @@ export function ProfilePage() {
                     
                     {/* Stats Row */}
                     <div className="flex-1 flex justify-around ml-4 items-center">
-                        <div className="flex flex-col items-center">
+                        <button onClick={() => setTab('grid')} className="flex flex-col items-center hover:opacity-70 transition-opacity">
                             <span className="font-bold text-lg">{posts.length}</span>
                             <span className="text-[11px] text-muted-foreground">Posts</span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                            <span className="font-bold text-lg">0</span> {/* Placeholder for friends count */}
-                            <span className="text-[11px] text-muted-foreground">Amigos</span>
-                        </div>
-                        <div className="flex flex-col items-center">
+                        </button>
+                        <Link to={`/friends?user=${id}&tab=followers`} className="flex flex-col items-center hover:opacity-70 transition-opacity">
+                            <span className="font-bold text-lg">{profile.followers_count || 0}</span>
+                            <span className="text-[11px] text-muted-foreground">Seguidores</span>
+                        </Link>
+                        <Link to={`/friends?user=${id}&tab=following`} className="hidden sm:flex flex-col items-center hover:opacity-70 transition-opacity">
+                            <span className="font-bold text-lg">{profile.following_count || 0}</span>
+                            <span className="text-[11px] text-muted-foreground">Siguiendo</span>
+                        </Link>
+                        <Link to="/rankings" className="flex flex-col items-center hover:opacity-70 transition-opacity">
                             <span className="font-bold text-lg text-amber-500">{profile.reputation}</span>
                             <span className="text-[11px] text-muted-foreground">Reputación</span>
-                        </div>
+                        </Link>
                     </div>
                 </div>
 
                 {/* Bio Section */}
                 <div className="px-1 mb-4">
                     <div className="flex items-center gap-1.5 mb-0.5">
-                        <h1 className="font-bold text-[15px] leading-tight flex items-center gap-1">
+                        <h1 className="font-bold text-[15px] leading-tight flex items-center gap-1.5">
                             {profile.full_name}
-                            {profile.role === 'sudo' && <CheckIcon className="h-3.5 w-3.5 text-blue-500" />}
+                            {(profile.role === 'sudo' || profile.role === 'admin') ? (
+                                <span className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                    <ShieldCheckIcon className="h-3 w-3" />
+                                    Admin
+                                </span>
+                            ) : (
+                                <CheckIcon className="h-3.5 w-3.5 text-blue-500" />
+                            )}
                         </h1>
                     </div>
                     {profile.career && (
@@ -339,15 +437,33 @@ export function ProfilePage() {
                             )}
                         </>
                     ) : (
-                        <Button
-                            className="flex-1 h-8 text-xs font-semibold rounded-lg shadow-neon-primary"
-                            variant={followStatus === 'friends' ? 'secondary' : followStatus === 'pending' ? 'outline' : 'default'}
-                            disabled={followLoading || followCheckLoading || followStatus !== 'none'}
-                            onClick={handleFollow}
-                        >
-                            {(followLoading || followCheckLoading) && <div className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />}
-                            {followCheckLoading ? 'Cargando...' : followStatus === 'friends' ? 'Amigos' : followStatus === 'pending' ? 'Pendiente' : 'Añadir Amigo'}
-                        </Button>
+                        <div className="flex gap-2 flex-1">
+                            {followStatus === 'none' || followStatus === 'follows_you' ? (
+                                <Button
+                                    className="flex-1 h-8 text-xs font-semibold rounded-lg"
+                                    disabled={followLoading || followCheckLoading}
+                                    onClick={handleFollow}
+                                >
+                                    {(followLoading || followCheckLoading) && <div className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                                    {followCheckLoading ? 'Cargando...' : followStatus === 'follows_you' ? 'Seguir de vuelta' : 'Seguir'}
+                                </Button>
+                            ) : (
+                                <Button
+                                    className="flex-1 h-8 text-xs font-semibold rounded-lg"
+                                    variant={followStatus === 'friends' ? 'secondary' : 'outline'}
+                                    disabled={followLoading || followCheckLoading}
+                                    onClick={handleUnfollow}
+                                >
+                                    {followLoading && <div className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                                    {followStatus === 'friends' ? 'Amigos ✓' : 'Siguiendo'}
+                                </Button>
+                            )}
+                            <Link to={`/messages/${id}`}>
+                                <Button variant="outline" className="h-8 text-xs font-semibold rounded-lg" size="icon">
+                                    <MessageCircleIcon className="h-4 w-4" />
+                                </Button>
+                            </Link>
+                        </div>
                     )}
                 </div>
                 
@@ -420,7 +536,7 @@ export function ProfilePage() {
             {tab === 'grid' && (
                 <div className="bg-background min-h-[50vh]">
                     {postsLoading ? (
-                        <div className="flex justify-center py-10"><div className="h-7 w-7 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
+                        <><PostSkeleton /><PostSkeleton /><PostSkeleton /></>
                     ) : posts.length === 0 ? (
                         <div className="py-20 text-center flex flex-col items-center">
                             <div className="h-16 w-16 mb-4 rounded-full border-2 border-muted-foreground flex items-center justify-center">
@@ -438,6 +554,8 @@ export function ProfilePage() {
                                     key={post.id}
                                     publication={post}
                                     currentUserId={user?.id}
+                                    hideAuthor
+                                    onLike={handleLike}
                                 />
                             ))}
                         </div>
@@ -452,28 +570,121 @@ export function ProfilePage() {
             )}
 
             {/* ── TAB: INFO ── */}
-            {tab === 'info' && (
-                <div className="bg-background p-4 min-h-[50vh] pb-24">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        {[
-                            { label: 'Rol', value: profile.role.charAt(0).toUpperCase() + profile.role.slice(1), icon: UserIcon },
-                            { label: 'Miembro desde', value: joinDate, icon: CalendarIcon },
-                            { label: 'Email Institucional', value: profile.email, icon: MailIcon },
-                            { label: 'Reputación', value: `${profile.reputation} puntos`, icon: StarIcon },
-                        ].map((item, idx) => (
-                            <div key={idx} className="flex items-center gap-3 p-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
-                                    <item.icon className="h-5 w-5 text-foreground/70" />
+            {tab === 'info' && (() => {
+                const total = roadmapSubjects.length;
+                const approved = Object.values(roadmapStatuses).filter(s => s === 'APROBADA').length;
+                const inProgress = Object.values(roadmapStatuses).filter(s => s === 'CURSANDO').length;
+                const failed = Object.values(roadmapStatuses).filter(s => s === 'REPROBADA').length;
+                const pct = total > 0 ? Math.round((approved / total) * 100) : 0;
+
+                // Group subjects by semester
+                const semesters: Record<number, Subject[]> = {};
+                roadmapSubjects.forEach(s => {
+                    if (!semesters[s.semester]) semesters[s.semester] = [];
+                    semesters[s.semester].push(s);
+                });
+                const semNums = Object.keys(semesters).map(Number).sort((a, b) => a - b);
+
+                const statusColor: Record<string, string> = {
+                    APROBADA: 'bg-emerald-500',
+                    CURSANDO: 'bg-amber-500',
+                    REPROBADA: 'bg-red-500',
+                    NO_CURSADA: 'bg-muted-foreground/20',
+                };
+
+                return (
+                    <div className="bg-background p-4 min-h-[50vh] pb-24 space-y-6">
+                        {/* Info cards */}
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {[
+                                { label: 'Rol', value: profile.role.charAt(0).toUpperCase() + profile.role.slice(1), icon: UserIcon },
+                                { label: 'Miembro desde', value: joinDate, icon: CalendarIcon },
+                                { label: 'Email Institucional', value: profile.email.replace('@potros.itson.edu.mx', ''), icon: MailIcon },
+                                { label: 'Reputación', value: `${profile.reputation} puntos`, icon: StarIcon },
+                            ].map((item, idx) => (
+                                <div key={idx} className="flex items-center gap-3 p-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+                                        <item.icon className="h-5 w-5 text-foreground/70" />
+                                    </div>
+                                    <div className="flex-1 border-b border-border/50 pb-2">
+                                        <p className="text-[11px] font-medium text-muted-foreground">{item.label}</p>
+                                        <p className="mt-0.5 text-[14px] font-semibold">{item.value}</p>
+                                    </div>
                                 </div>
-                                <div className="flex-1 border-b border-border/50 pb-2">
-                                    <p className="text-[11px] font-medium text-muted-foreground">{item.label}</p>
-                                    <p className="mt-0.5 text-[14px] font-semibold">{item.value}</p>
+                            ))}
+                        </div>
+
+                        {/* Roadmap / Progreso académico */}
+                        {profile.career_id && (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <MapIcon className="h-5 w-5 text-primary" />
+                                    <h3 className="text-base font-bold">Progreso Académico</h3>
                                 </div>
+
+                                {roadmapLoading ? (
+                                    <div className="flex justify-center py-8">
+                                        <div className="h-6 w-6 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+                                    </div>
+                                ) : total === 0 ? (
+                                    <p className="text-sm text-muted-foreground py-4">No hay materias registradas para esta carrera.</p>
+                                ) : (
+                                    <>
+                                        {/* Summary bar */}
+                                        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm font-semibold">{pct}% completado</span>
+                                                <span className="text-xs text-muted-foreground">{approved}/{total} materias</span>
+                                            </div>
+                                            <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                                                <div className="flex h-full">
+                                                    <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${(approved / total) * 100}%` }} />
+                                                    <div className="bg-amber-500 transition-all duration-500" style={{ width: `${(inProgress / total) * 100}%` }} />
+                                                    <div className="bg-red-500 transition-all duration-500" style={{ width: `${(failed / total) * 100}%` }} />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-4 text-xs text-muted-foreground">
+                                                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" />{approved} aprobadas</span>
+                                                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500" />{inProgress} cursando</span>
+                                                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" />{failed} reprobadas</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Semester dots grid */}
+                                        <div className="space-y-3">
+                                            {semNums.map(sem => {
+                                                const subjects = semesters[sem];
+                                                const semApproved = subjects.filter(s => roadmapStatuses[s.id] === 'APROBADA').length;
+                                                return (
+                                                    <div key={sem} className="rounded-xl border border-border bg-card p-3 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-semibold">Semestre {sem}</span>
+                                                            <span className="text-[10px] text-muted-foreground">{semApproved}/{subjects.length}</span>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {subjects.map(subject => {
+                                                                const status = roadmapStatuses[subject.id] || 'NO_CURSADA';
+                                                                return (
+                                                                    <div
+                                                                        key={subject.id}
+                                                                        title={`${subject.name} — ${status === 'NO_CURSADA' ? 'No cursada' : status === 'APROBADA' ? 'Aprobada' : status === 'CURSANDO' ? 'Cursando' : 'Reprobada'}`}
+                                                                        className={`h-3 rounded-full transition-all duration-300 ${statusColor[status]}`}
+                                                                        style={{ width: `${Math.max(100 / subjects.length - 1, 8)}%`, minWidth: '12px' }}
+                                                                    />
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                )}
                             </div>
-                        ))}
+                        )}
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
         </div>
     );

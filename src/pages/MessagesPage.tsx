@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { api } from '@/lib/api';
@@ -7,10 +7,12 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
+import { ChatSkeleton } from '@/components/ui/Skeleton';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import {
     MessageCircleIcon, SendIcon, UserIcon, ArrowLeftIcon,
-    CheckIcon, CheckCheckIcon, SmileIcon, XIcon
+    CheckIcon, CheckCheckIcon, SmileIcon, XIcon, SearchIcon,
+    PenSquareIcon, ChevronDownIcon, ChevronUpIcon, Trash2Icon, UserPlusIcon, LoaderIcon, ImageIcon
 } from 'lucide-react';
 
 // Hook para detectar tamaño de pantalla
@@ -32,15 +34,24 @@ function useMediaQuery(query: string): boolean {
 
 interface ConversationUser { id: string; full_name: string; avatar_url: string; email: string }
 interface LastMessage { content: string; created_at: string; sender_id: string; is_read?: boolean }
-interface Conversation { user: ConversationUser; lastMessage: LastMessage | null; unread: number }
+interface Conversation { user: ConversationUser; lastMessage: LastMessage | null; unread: number; is_request?: boolean }
 interface Message { id: string; sender_id: string; receiver_id: string; content: string; is_read: boolean; created_at: string; reply_to?: string }
+interface Friend { id: string; full_name: string; avatar_url: string; email: string }
 
 export function MessagesPage() {
     const { userId } = useParams<{ userId: string }>();
+    const navigate = useNavigate();
     const { session, user } = useAuth();
     const { theme } = useTheme();
     const isDesktop = useMediaQuery('(min-width: 768px)'); // md breakpoint
     const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showNewMessage, setShowNewMessage] = useState(false);
+    const [friends, setFriends] = useState<Friend[]>([]);
+    const [friendsLoading, setFriendsLoading] = useState(false);
+    const [showRequests, setShowRequests] = useState(false);
+    const [acceptingId, setAcceptingId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     
     // Swipe to reply logic
     const [swipeStates, setSwipeStates] = useState<Record<string, number>>({});
@@ -49,6 +60,8 @@ export function MessagesPage() {
     const [chatUser, setChatUser] = useState<ConversationUser | null>(null);
     const [newMessage, setNewMessage] = useState('');
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showMediaInput, setShowMediaInput] = useState(false);
+    const [mediaUrl, setMediaUrl] = useState('');
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [loading, setLoading] = useState(true);
     const [messagesLoading, setMessagesLoading] = useState(false);
@@ -106,6 +119,10 @@ export function MessagesPage() {
             setMessages([]);
             setChatUser(null);
             fetchMessages(activeUserId);
+            // Clear unread badge for this conversation
+            setConversations(prev => prev.map(c =>
+                c.user.id === activeUserId ? { ...c, unread: 0 } : c
+            ));
         }
     }, [activeUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -248,6 +265,104 @@ export function MessagesPage() {
         }
     };
 
+    const mediaUrlPattern = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|mp4|webm)(\?.*)?$/i;
+
+    const renderMessageContent = (content: string) => {
+        if (mediaUrlPattern.test(content)) {
+            const isVideo = /\.(mp4|webm)(\?.*)?$/i.test(content);
+            if (isVideo) {
+                return <video src={content} controls playsInline preload="metadata" className="max-w-full rounded-lg max-h-[300px]" />;
+            }
+            return <img src={content} alt="" className="max-w-full rounded-lg max-h-[300px] object-cover" loading="lazy" />;
+        }
+        return <span className="text-[15px] leading-relaxed break-words">{content}</span>;
+    };
+
+    const renderMessageContentDesktop = (content: string) => {
+        if (mediaUrlPattern.test(content)) {
+            const isVideo = /\.(mp4|webm)(\?.*)?$/i.test(content);
+            if (isVideo) {
+                return <video src={content} controls playsInline preload="metadata" className="max-w-full rounded-lg max-h-[300px]" />;
+            }
+            return <img src={content} alt="" className="max-w-full rounded-lg max-h-[300px] object-cover" loading="lazy" />;
+        }
+        return <span className="text-sm leading-relaxed break-words">{content}</span>;
+    };
+
+    const handleSendMedia = async () => {
+        if (!mediaUrl.trim()) return;
+        const url = mediaUrl.trim();
+        setMediaUrl('');
+        setShowMediaInput(false);
+        setNewMessage(url);
+        // Trigger send with the URL as message content
+        if (!session?.access_token || !activeUserId || !user?.id) return;
+        const optimisticMsg: Message = {
+            id: crypto.randomUUID(),
+            sender_id: user.id,
+            receiver_id: activeUserId,
+            content: url,
+            is_read: false,
+            created_at: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+        setNewMessage('');
+        setSending(true);
+        try {
+            await api('/messages', {
+                method: 'POST', token: session.access_token,
+                body: JSON.stringify({ receiver_id: activeUserId, content: url }),
+            });
+        } catch {
+            setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+        } finally { setSending(false); }
+    };
+
+    const fetchFriends = useCallback(async () => {
+        if (!session?.access_token) return;
+        setFriendsLoading(true);
+        try {
+            const data = await api<{ users: Friend[] }>('/follows?type=friends', { token: session.access_token });
+            setFriends(data.users);
+        } catch { /* silent */ } finally { setFriendsLoading(false); }
+    }, [session?.access_token]);
+
+    const handleOpenNewMessage = () => {
+        setShowNewMessage(true);
+        fetchFriends();
+    };
+
+    const handleAcceptRequest = async (conv: Conversation) => {
+        if (!session?.access_token) return;
+        setAcceptingId(conv.user.id);
+        try {
+            await api('/follows', {
+                method: 'POST',
+                token: session.access_token,
+                body: JSON.stringify({ following_id: conv.user.id }),
+            });
+            setConversations(prev => prev.map(c =>
+                c.user.id === conv.user.id ? { ...c, is_request: false } : c
+            ));
+        } catch { /* silent */ } finally { setAcceptingId(null); }
+    };
+
+    const handleDeleteRequest = async (conv: Conversation) => {
+        if (!session?.access_token) return;
+        setDeletingId(conv.user.id);
+        try {
+            await api(`/messages/${conv.user.id}`, {
+                method: 'DELETE',
+                token: session.access_token,
+            });
+            setConversations(prev => prev.filter(c => c.user.id !== conv.user.id));
+        } catch { /* silent */ } finally { setDeletingId(null); }
+    };
+
+    const filteredConversations = conversations.filter(c =>
+        c.user.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     // Mobile chat view - When specific user is selected
     if (activeUserId && !isDesktop) {
         return (
@@ -325,7 +440,7 @@ export function MessagesPage() {
                                             )}
 
                                             <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5 pt-0.5">
-                                                <span className="text-[15px] leading-relaxed break-words">{msg.content}</span>
+                                                {renderMessageContent(msg.content)}
                                                 <div className={`flex ml-auto pl-1 items-center gap-1 text-[10px] pb-0.5 ${msg.sender_id === user?.id ? 'text-primary-foreground/75' : 'text-muted-foreground/60'}`}>
                                                     <span>{new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
                                                     {msg.sender_id === user?.id && (
@@ -364,6 +479,25 @@ export function MessagesPage() {
                         </div>
                     )}
 
+                    {showMediaInput && (
+                        <div className="max-w-4xl mx-auto w-full mb-2 flex items-center gap-2 rounded-xl bg-muted/50 p-2 border border-primary/20">
+                            <Input
+                                placeholder="Pega la URL de imagen o video..."
+                                value={mediaUrl}
+                                onChange={e => setMediaUrl(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleSendMedia()}
+                                className="h-8 text-sm flex-1 rounded-lg"
+                                autoFocus
+                            />
+                            <Button size="sm" className="h-8 px-3 rounded-lg" onClick={handleSendMedia} disabled={!mediaUrl.trim()}>
+                                <SendIcon className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full shrink-0" onClick={() => { setShowMediaInput(false); setMediaUrl(''); }}>
+                                <XIcon className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
+
                     {replyingTo && (
                         <div className="max-w-4xl mx-auto w-full mb-2 flex items-center justify-between rounded-xl bg-muted/50 p-2 text-[13px] border-l-4 border-primary">
                             <div className="flex-1 min-w-0 pr-2">
@@ -377,11 +511,17 @@ export function MessagesPage() {
                     )}
                     <div className="flex items-end gap-2 max-w-4xl mx-auto w-full">
                         <div className="flex-1 flex items-end bg-muted/50 rounded-3xl border border-transparent focus-within:border-primary/30 focus-within:bg-background transition-colors overflow-hidden">
-                            <button 
+                            <button
                                 className="p-3 pl-4 mb-0 text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
                                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                             >
                                 <SmileIcon className="h-[22px] w-[22px]" />
+                            </button>
+                            <button
+                                className="p-3 mb-0 text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
+                                onClick={() => { setShowMediaInput(!showMediaInput); setShowEmojiPicker(false); }}
+                            >
+                                <ImageIcon className="h-[22px] w-[22px]" />
                             </button>
                             <Input
                                 placeholder="Escribe un mensaje"
@@ -393,9 +533,9 @@ export function MessagesPage() {
                                 className="border-0 bg-transparent shadow-none px-2 ml-1 focus-visible:ring-0 rounded-none h-[50px] w-full text-[15.5px]"
                             />
                         </div>
-                        <Button 
-                            onClick={handleSend} 
-                            disabled={sending || !newMessage.trim()} 
+                        <Button
+                            onClick={handleSend}
+                            disabled={sending || !newMessage.trim()}
                             className="h-12 w-12 shrink-0 rounded-full p-0 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 shadow-neon-primary transition-all"
                         >
                             <SendIcon className="h-5 w-5 ml-1" />
@@ -408,6 +548,8 @@ export function MessagesPage() {
 
     // Mobile chat list - When no activeUserId
     if (!activeUserId && !isDesktop) {
+        const primaryConvs = filteredConversations.filter(c => !c.is_request);
+        const requestConvs = filteredConversations.filter(c => c.is_request);
         return (
         <div className="pb-20 h-screen flex flex-col pt-4 bg-background relative z-10">
                 <div className="px-4 pb-2 flex justify-between items-center mb-2">
@@ -417,22 +559,124 @@ export function MessagesPage() {
                         </Link>
                         <h1 className="text-2xl font-bold">Chats</h1>
                     </div>
-                    <Button variant="ghost" size="icon" className="rounded-full bg-muted/50 text-foreground">
-                        <MessageCircleIcon className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" className="rounded-full bg-muted/50 text-foreground" onClick={handleOpenNewMessage}>
+                        <PenSquareIcon className="h-5 w-5" />
                     </Button>
                 </div>
 
+                <div className="px-4 pb-2">
+                    <div className="relative">
+                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar conversación..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="pl-9 h-10 rounded-xl bg-muted/50 border-transparent focus-visible:border-primary/30"
+                        />
+                    </div>
+                </div>
+
+                {/* New message modal */}
+                {showNewMessage && (
+                    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/50" onClick={() => setShowNewMessage(false)}>
+                        <div className="bg-background w-full max-w-md rounded-t-2xl sm:rounded-2xl max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between p-4 border-b border-border">
+                                <h2 className="font-semibold text-lg">Nuevo mensaje</h2>
+                                <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setShowNewMessage(false)}>
+                                    <XIcon className="h-5 w-5" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                                {friendsLoading ? (
+                                    <ChatSkeleton />
+                                ) : friends.length === 0 ? (
+                                    <div className="py-12 text-center text-muted-foreground text-sm">No tienes amigos aún</div>
+                                ) : friends.map(friend => (
+                                    <button
+                                        key={friend.id}
+                                        className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/30 transition-colors"
+                                        onClick={() => { setShowNewMessage(false); navigate(`/messages/${friend.id}`); }}
+                                    >
+                                        <div className="h-11 w-11 shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                                            {friend.avatar_url
+                                                ? <img src={friend.avatar_url} alt="" className="h-full w-full object-cover" />
+                                                : <UserIcon className="h-5 w-5 text-primary" />}
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="font-semibold text-sm">{friend.full_name}</p>
+                                            <p className="text-xs text-muted-foreground">{friend.email}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {loading ? (
-                    <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
-                ) : conversations.length === 0 ? (
+                    <ChatSkeleton />
+                ) : filteredConversations.length === 0 ? (
                     <div className="m-4 rounded-2xl border border-dashed border-border py-16 text-center">
                         <MessageCircleIcon className="mx-auto h-12 w-12 text-muted-foreground/30" />
-                        <p className="mt-4 text-muted-foreground font-medium">No tienes chats activos</p>
-                        <p className="mt-1 text-sm text-muted-foreground">Encuentra a alguien en Búsqueda para enviar un mensaje</p>
+                        <p className="mt-4 text-muted-foreground font-medium">{searchQuery ? 'Sin resultados' : 'No tienes chats activos'}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{searchQuery ? 'Intenta con otro nombre' : 'Encuentra a alguien en Búsqueda para enviar un mensaje'}</p>
                     </div>
                 ) : (
-                    <div className="flex-1 overflow-y-auto divide-y divide-border/50 bg-background">
-                        {conversations.map(conv => {
+                    <div className="flex-1 overflow-y-auto bg-background">
+                        {requestConvs.length > 0 && (
+                            <div className="px-4 py-3 border-b border-border/50">
+                                <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between w-full rounded-xl bg-primary/5 border border-primary/15 px-4 py-3 transition-colors hover:bg-primary/10">
+                                    <div className="text-left">
+                                        <p className="text-sm font-semibold">Solicitudes de mensaje</p>
+                                        <p className="text-xs text-muted-foreground">{requestConvs.length} {requestConvs.length === 1 ? 'solicitud' : 'solicitudes'} pendiente{requestConvs.length > 1 ? 's' : ''}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground px-1.5">
+                                            {requestConvs.length}
+                                        </span>
+                                        {showRequests ? <ChevronUpIcon className="h-4 w-4 text-muted-foreground" /> : <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />}
+                                    </div>
+                                </button>
+                                {showRequests && (
+                                    <div className="mt-2 space-y-2">
+                                        {requestConvs.map(conv => (
+                                            <div key={conv.user.id} className="flex items-center gap-3 rounded-xl bg-muted/30 border border-border/50 px-3 py-2.5">
+                                                <div className="h-10 w-10 shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                                                    {conv.user.avatar_url
+                                                        ? <img src={conv.user.avatar_url} alt="" className="h-full w-full object-cover" />
+                                                        : <UserIcon className="h-5 w-5 text-primary" />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-semibold text-sm truncate">{conv.user.full_name}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">{conv.lastMessage?.content || 'Nuevo mensaje'}</p>
+                                                </div>
+                                                <div className="flex gap-1.5 shrink-0">
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-8 px-3 text-xs rounded-lg"
+                                                        disabled={acceptingId === conv.user.id}
+                                                        onClick={() => handleAcceptRequest(conv)}
+                                                    >
+                                                        {acceptingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : <><UserPlusIcon className="h-3 w-3 mr-1" />Aceptar</>}
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-8 px-2 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        disabled={deletingId === conv.user.id}
+                                                        onClick={() => handleDeleteRequest(conv)}
+                                                    >
+                                                        {deletingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : <Trash2Icon className="h-3.5 w-3.5" />}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <div className="divide-y divide-border/50">
+                        {primaryConvs.map(conv => {
                             const dateObj = conv.lastMessage ? new Date(conv.lastMessage.created_at) : new Date();
                             const timeStr = dateObj.toLocaleDateString() === new Date().toLocaleDateString() 
                                 ? dateObj.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
@@ -477,6 +721,7 @@ export function MessagesPage() {
                                 </Link>
                             );
                         })}
+                        </div>
                     </div>
                 )}
             </div>
@@ -501,38 +746,142 @@ export function MessagesPage() {
                             Potro<span className="text-primary">NET</span>
                         </span>
                     </div>
-                    <Button variant="ghost" size="icon" className="rounded-full">
-                        <MessageCircleIcon className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" className="rounded-full" onClick={handleOpenNewMessage}>
+                        <PenSquareIcon className="h-5 w-5" />
                     </Button>
                 </div>
+
+                {/* Search */}
+                <div className="p-3 border-b border-border/50">
+                    <div className="relative">
+                        <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="pl-8 h-8 text-sm rounded-lg bg-muted/50 border-transparent focus-visible:border-primary/30"
+                        />
+                    </div>
+                </div>
+
+                {/* New message modal (desktop) */}
+                {showNewMessage && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50" onClick={() => setShowNewMessage(false)}>
+                        <div className="bg-background w-full max-w-md rounded-2xl max-h-[70vh] flex flex-col shadow-xl" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between p-4 border-b border-border">
+                                <h2 className="font-semibold text-lg">Nuevo mensaje</h2>
+                                <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setShowNewMessage(false)}>
+                                    <XIcon className="h-5 w-5" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                                {friendsLoading ? (
+                                    <ChatSkeleton />
+                                ) : friends.length === 0 ? (
+                                    <div className="py-12 text-center text-muted-foreground text-sm">No tienes amigos aún</div>
+                                ) : friends.map(friend => (
+                                    <button
+                                        key={friend.id}
+                                        className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/30 transition-colors"
+                                        onClick={() => { setShowNewMessage(false); navigate(`/messages/${friend.id}`); }}
+                                    >
+                                        <div className="h-10 w-10 shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                                            {friend.avatar_url
+                                                ? <img src={friend.avatar_url} alt="" className="h-full w-full object-cover" />
+                                                : <UserIcon className="h-5 w-5 text-primary" />}
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="font-semibold text-sm">{friend.full_name}</p>
+                                            <p className="text-xs text-muted-foreground">{friend.email}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* User List */}
                 <div className="flex-1 overflow-y-auto">
                     {loading ? (
-                        <div className="flex justify-center py-12">
-                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                        </div>
-                    ) : conversations.length === 0 ? (
+                        <ChatSkeleton />
+                    ) : filteredConversations.length === 0 ? (
                         <div className="m-4 rounded-2xl border border-dashed border-border py-16 text-center">
                             <MessageCircleIcon className="mx-auto h-12 w-12 text-muted-foreground/30" />
-                            <p className="mt-4 text-muted-foreground font-medium">No tienes chats activos</p>
-                            <p className="mt-1 text-sm text-muted-foreground">Encuentra a alguien en Búsqueda para enviar un mensaje</p>
+                            <p className="mt-4 text-muted-foreground font-medium">{searchQuery ? 'Sin resultados' : 'No tienes chats activos'}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{searchQuery ? 'Intenta con otro nombre' : 'Encuentra a alguien en Búsqueda para enviar un mensaje'}</p>
                         </div>
-                    ) : (
-                        conversations.map(conv => {
+                    ) : (() => {
+                        const primaryConvs = filteredConversations.filter(c => !c.is_request);
+                        const requestConvs = filteredConversations.filter(c => c.is_request);
+                        return (
+                        <>
+                        {requestConvs.length > 0 && (
+                            <div className="p-3 border-b border-border/50">
+                                <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between w-full rounded-lg bg-primary/5 border border-primary/15 px-3 py-2.5 hover:bg-primary/10 transition-colors">
+                                    <div className="text-left">
+                                        <p className="text-xs font-semibold">Solicitudes de mensaje</p>
+                                        <p className="text-[10px] text-muted-foreground">{requestConvs.length} pendiente{requestConvs.length > 1 ? 's' : ''}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground px-1">
+                                            {requestConvs.length}
+                                        </span>
+                                        {showRequests ? <ChevronUpIcon className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDownIcon className="h-3.5 w-3.5 text-muted-foreground" />}
+                                    </div>
+                                </button>
+                                {showRequests && (
+                                    <div className="mt-2 space-y-1.5">
+                                        {requestConvs.map(conv => (
+                                            <div key={conv.user.id} className="flex items-center gap-2 rounded-lg bg-muted/30 border border-border/50 px-2.5 py-2">
+                                                <div className="h-8 w-8 shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                                                    {conv.user.avatar_url
+                                                        ? <img src={conv.user.avatar_url} alt="" className="h-full w-full object-cover" />
+                                                        : <UserIcon className="h-4 w-4 text-primary" />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-semibold text-xs truncate">{conv.user.full_name}</p>
+                                                    <p className="text-[10px] text-muted-foreground truncate">{conv.lastMessage?.content || 'Nuevo mensaje'}</p>
+                                                </div>
+                                                <div className="flex gap-1 shrink-0">
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-7 px-2 text-[10px] rounded-md"
+                                                        disabled={acceptingId === conv.user.id}
+                                                        onClick={() => handleAcceptRequest(conv)}
+                                                    >
+                                                        {acceptingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : 'Aceptar'}
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-7 px-1.5 text-[10px] rounded-md text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        disabled={deletingId === conv.user.id}
+                                                        onClick={() => handleDeleteRequest(conv)}
+                                                    >
+                                                        {deletingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : <Trash2Icon className="h-3 w-3" />}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {primaryConvs.map(conv => {
                             const dateObj = conv.lastMessage ? new Date(conv.lastMessage.created_at) : new Date();
-                            const timeStr = dateObj.toLocaleDateString() === new Date().toLocaleDateString() 
+                            const timeStr = dateObj.toLocaleDateString() === new Date().toLocaleDateString()
                                 ? dateObj.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
                                 : dateObj.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-                                
+
                             const isSentByMe = conv.lastMessage?.sender_id === user?.id;
                             const isActive = conv.user.id === activeUserId;
-                            
+
                             return (
                                 <Link to={`/messages/${conv.user.id}`} key={conv.user.id} className="block">
                                     <div className={`flex items-center gap-3 py-3 px-4 transition-all cursor-pointer border-l-4 ${
-                                        isActive 
-                                            ? 'bg-primary/5 border-primary' 
+                                        isActive
+                                            ? 'bg-primary/5 border-primary'
                                             : 'hover:bg-muted/30 border-transparent'
                                     }`}>
                                         <div className="relative h-12 w-12 shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
@@ -568,8 +917,10 @@ export function MessagesPage() {
                                     </div>
                                 </Link>
                             );
-                        })
-                    )}
+                        })}
+                        </>
+                        );
+                    })()}
                 </div>
             </div>
 
@@ -648,7 +999,7 @@ export function MessagesPage() {
                                                     )}
 
                                                     <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5 pt-0.5">
-                                                        <span className="text-sm leading-relaxed break-words">{msg.content}</span>
+                                                        {renderMessageContentDesktop(msg.content)}
                                                         <div className={`flex ml-auto pl-1 items-center gap-1 text-xs pb-0.5 ${msg.sender_id === user?.id ? 'text-primary-foreground/75' : 'text-muted-foreground/60'}`}>
                                                             <span>{new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
                                                             {msg.sender_id === user?.id && (
@@ -687,6 +1038,25 @@ export function MessagesPage() {
                                 </div>
                             )}
 
+                            {showMediaInput && (
+                                <div className="mb-2 flex items-center gap-2 rounded-xl bg-muted/50 p-2 border border-primary/20">
+                                    <Input
+                                        placeholder="Pega la URL de imagen o video..."
+                                        value={mediaUrl}
+                                        onChange={e => setMediaUrl(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleSendMedia()}
+                                        className="h-8 text-sm flex-1 rounded-lg"
+                                        autoFocus
+                                    />
+                                    <Button size="sm" className="h-8 px-3 rounded-lg" onClick={handleSendMedia} disabled={!mediaUrl.trim()}>
+                                        <SendIcon className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full shrink-0" onClick={() => { setShowMediaInput(false); setMediaUrl(''); }}>
+                                        <XIcon className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
+
                             {replyingTo && (
                                 <div className="mb-2 flex items-center justify-between rounded-xl bg-muted/50 p-2 text-xs border-l-4 border-primary">
                                     <div className="flex-1 min-w-0 pr-2">
@@ -698,14 +1068,20 @@ export function MessagesPage() {
                                     </Button>
                                 </div>
                             )}
-                            
+
                             <div className="flex items-end gap-2">
                                 <div className="flex-1 flex items-end bg-muted/50 rounded-2xl border border-transparent focus-within:border-primary/30 focus-within:bg-background transition-colors overflow-hidden">
-                                    <button 
+                                    <button
                                         className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
                                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                                     >
                                         <SmileIcon className="h-5 w-5" />
+                                    </button>
+                                    <button
+                                        className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                        onClick={() => { setShowMediaInput(!showMediaInput); setShowEmojiPicker(false); }}
+                                    >
+                                        <ImageIcon className="h-5 w-5" />
                                     </button>
                                     <Input
                                         placeholder="Escribe un mensaje"
@@ -717,9 +1093,9 @@ export function MessagesPage() {
                                         className="border-0 bg-transparent shadow-none px-2 focus-visible:ring-0 rounded-none h-10 w-full"
                                     />
                                 </div>
-                                <Button 
-                                    onClick={handleSend} 
-                                    disabled={sending || !newMessage.trim()} 
+                                <Button
+                                    onClick={handleSend}
+                                    disabled={sending || !newMessage.trim()}
                                     className="h-10 w-10 shrink-0 rounded-full p-0 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90"
                                 >
                                     <SendIcon className="h-4 w-4" />

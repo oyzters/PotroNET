@@ -129,8 +129,8 @@
     --radius-2xl: calc(var(--radius) + 8px);
     --radius-3xl: calc(var(--radius) + 12px);
     --radius-4xl: calc(var(--radius) + 16px);
-    --shadow-neon-primary: 0 0 10px oklch(0.68 0.15 237 / 0.7), 0 0 30px oklch(0.68 0.15 237 / 0.3);
-    --shadow-neon-violet: 0 0 10px oklch(0.65 0.22 300 / 0.7), 0 0 30px oklch(0.65 0.22 300 / 0.3);
+    --shadow-neon-primary: 0 0 8px oklch(0.68 0.15 237 / 0.35), 0 0 20px oklch(0.68 0.15 237 / 0.12);
+    --shadow-neon-violet: 0 0 8px oklch(0.65 0.22 300 / 0.35), 0 0 20px oklch(0.65 0.22 300 / 0.12);
     --shadow-neon-secondary: 0 0 10px oklch(var(--secondary)), 0 0 20px oklch(var(--secondary) / 0.5);
     --shadow-neon-destructive: 0 0 10px oklch(var(--destructive)), 0 0 20px oklch(var(--destructive) / 0.5);
     --shadow-neon-accent: 0 0 10px oklch(var(--accent)), 0 0 20px oklch(var(--accent) / 0.5);
@@ -153,18 +153,18 @@
    ============================================================ */
 /* Orb 1: breathing pulse, 14s cycles */
 @keyframes orb-float-1 {
-  0%, 100% { transform: translate(0px, 0px) scale(1.00); opacity: 0.6; }
-  50%      { transform: translate(8px, -8px) scale(1.25); opacity: 1.0; }
+  0%, 100% { transform: translate(0px, 0px) scale(1.00); opacity: 0.7; }
+  50%      { transform: translate(6px, -6px) scale(1.08); opacity: 1.0; }
 }
 /* Orb 2: slightly faster breathing, 18s cycles */
 @keyframes orb-float-2 {
-  0%, 100% { transform: translate(0px, 0px) scale(1.00); opacity: 0.5; }
-  50%      { transform: translate(-8px, 6px) scale(1.20); opacity: 1.0; }
+  0%, 100% { transform: translate(0px, 0px) scale(1.00); opacity: 0.6; }
+  50%      { transform: translate(-6px, 5px) scale(1.06); opacity: 1.0; }
 }
 /* Orb 3: softer breathing, 22s cycles */
 @keyframes orb-float-3 {
   0%, 100% { transform: translate(0px, 0px) scale(1.00); opacity: 0.7; }
-  50%      { transform: translate(4px, 12px) scale(1.15); opacity: 1.0; }
+  50%      { transform: translate(3px, 8px) scale(1.05); opacity: 1.0; }
 }
 
 /* ============================================================
@@ -242,6 +242,18 @@
   color: oklch(0.80 0.14 237);
   border-color: oklch(0.68 0.15 237 / 0.35);
 }
+
+/* wave hand animation */
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(14deg); }
+  50% { transform: rotate(-8deg); }
+  75% { transform: rotate(14deg); }
+}
+
+/* scrollbar-hide utility for horizontal scroll sections */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* safe area padding for bottom nav */
 .pb-safe {

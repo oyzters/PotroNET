@@ -1,193 +1,182 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams, Link } from 'react-router-dom';
 import { api } from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { ListSkeleton } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { SectionHeader } from '@/components/ui/SectionHeader';
-import { Link } from 'react-router-dom';
 import {
-    UsersIcon, UserPlusIcon, UserMinusIcon, CheckIcon, XIcon, SearchIcon,
+    UsersIcon, UserIcon, ArrowLeftIcon,
 } from 'lucide-react';
 
 interface Career { id: string; name: string }
-interface Friend { id: string; friendshipId: string; full_name: string; avatar_url: string; email: string; bio: string; career: Career | null }
-interface FriendRequest {
-    id: string;
-    requester: { id: string; full_name: string; avatar_url: string; email: string } | null;
-    addressee: { id: string; full_name: string; avatar_url: string; email: string } | null;
-    created_at: string;
+interface FollowUser {
+    id: string; full_name: string; avatar_url: string; email: string; bio?: string;
+    career?: Career | null;
 }
-interface SearchUser { id: string; full_name: string; avatar_url: string; email: string; career: Career | null }
 
-type Tab = 'friends' | 'pending' | 'sent' | 'search';
+type Tab = 'friends' | 'followers' | 'following';
 
 export function FriendsPage() {
     const { session, user } = useAuth();
-    const [tab, setTab] = useState<Tab>('friends');
-    const [friends, setFriends] = useState<Friend[]>([]);
-    const [pending, setPending] = useState<FriendRequest[]>([]);
-    const [sent, setSent] = useState<FriendRequest[]>([]);
-    const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
-    const [search, setSearch] = useState('');
-    const [loading, setLoading] = useState(true);
+    const [searchParams] = useSearchParams();
+    const queryTab = searchParams.get('tab') as Tab | null;
+    const queryUser = searchParams.get('user');
+    const targetUserId = queryUser || user?.id;
+    const isOwnPage = targetUserId === user?.id;
 
-    const fetchFriends = useCallback(async () => {
-        if (!session?.access_token) return;
+    const [tab, setTab] = useState<Tab>(queryTab && ['friends', 'followers', 'following'].includes(queryTab) ? queryTab : 'friends');
+    const [friends, setFriends] = useState<FollowUser[]>([]);
+    const [followers, setFollowers] = useState<FollowUser[]>([]);
+    const [following, setFollowing] = useState<FollowUser[]>([]);
+    const [targetName, setTargetName] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [followingSet, setFollowingSet] = useState<Set<string>>(new Set());
+
+    const fetchData = useCallback(async () => {
+        if (!session?.access_token || !targetUserId) return;
         setLoading(true);
         try {
-            const [friendsData, pendingData, sentData] = await Promise.all([
-                api<{ friends: Friend[] }>('/friends', { token: session.access_token }),
-                api<{ requests: FriendRequest[] }>('/friends?type=pending', { token: session.access_token }),
-                api<{ requests: FriendRequest[] }>('/friends?type=sent', { token: session.access_token }),
+            const [friendsData, followersData, followingData] = await Promise.all([
+                api<{ users: FollowUser[] }>(`/follows?type=friends&user_id=${targetUserId}`, { token: session.access_token }),
+                api<{ users: FollowUser[] }>(`/follows?type=followers&user_id=${targetUserId}`, { token: session.access_token }),
+                api<{ users: FollowUser[] }>(`/follows?type=following&user_id=${targetUserId}`, { token: session.access_token }),
             ]);
-            setFriends(friendsData.friends);
-            setPending(pendingData.requests);
-            setSent(sentData.requests);
+            setFriends(friendsData.users);
+            setFollowers(followersData.users);
+            setFollowing(followingData.users);
+
+            // Fetch target user name if viewing someone else's network
+            if (!isOwnPage) {
+                const profileData = await api<{ profile: { full_name: string } }>(`/profiles/${targetUserId}`, { token: session.access_token });
+                setTargetName(profileData.profile.full_name);
+            }
+
+            // Build set of who the current user follows
+            if (isOwnPage) {
+                setFollowingSet(new Set(followingData.users.map(u => u.id)));
+            } else if (user?.id) {
+                const myFollowing = await api<{ users: FollowUser[] }>(`/follows?type=following&user_id=${user.id}`, { token: session.access_token });
+                setFollowingSet(new Set(myFollowing.users.map(u => u.id)));
+            }
         } catch { /* silent */ } finally { setLoading(false); }
-    }, [session?.access_token]);
+    }, [session?.access_token, targetUserId, isOwnPage, user?.id]);
 
-    useEffect(() => { fetchFriends(); }, [fetchFriends]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
-    const handleSearch = async () => {
-        if (!session?.access_token || search.trim().length < 2) return;
+    const handleFollow = async (targetId: string) => {
+        if (!session?.access_token) return;
         try {
-            const data = await api<{ users: SearchUser[]; professors: []; resources: []; tutoring: [] }>(`/search?q=${encodeURIComponent(search)}`, { token: session.access_token });
-            setSearchResults(data.users.filter(u => u.id !== user?.id));
+            await api('/follows', { method: 'POST', token: session.access_token, body: JSON.stringify({ following_id: targetId }) });
+            setFollowingSet(prev => new Set(prev).add(targetId));
+            fetchData();
         } catch { /* silent */ }
     };
 
-    const sendRequest = async (addresseeId: string) => {
+    const handleUnfollow = async (targetId: string) => {
         if (!session?.access_token) return;
         try {
-            await api('/friends', { method: 'POST', token: session.access_token, body: JSON.stringify({ addressee_id: addresseeId }) });
-            fetchFriends();
-        } catch { /* silent */ }
-    };
-
-    const respondRequest = async (friendshipId: string, status: 'accepted' | 'rejected') => {
-        if (!session?.access_token) return;
-        try {
-            await api(`/friends/${friendshipId}`, { method: 'PATCH', token: session.access_token, body: JSON.stringify({ status }) });
-            fetchFriends();
-        } catch { /* silent */ }
-    };
-
-    const removeFriend = async (friendshipId: string) => {
-        if (!session?.access_token) return;
-        try {
-            await api(`/friends/${friendshipId}`, { method: 'DELETE', token: session.access_token });
-            fetchFriends();
+            await api(`/follows/${targetId}`, { method: 'DELETE', token: session.access_token });
+            setFollowingSet(prev => { const s = new Set(prev); s.delete(targetId); return s; });
+            fetchData();
         } catch { /* silent */ }
     };
 
     const tabs: { key: Tab; label: string; count?: number }[] = [
         { key: 'friends', label: 'Amigos', count: friends.length },
-        { key: 'pending', label: 'Recibidas', count: pending.length },
-        { key: 'sent', label: 'Enviadas', count: sent.length },
-        { key: 'search', label: 'Buscar' },
+        { key: 'followers', label: 'Seguidores', count: followers.length },
+        { key: 'following', label: 'Siguiendo', count: following.length },
     ];
 
-    return (
-        <div className="space-y-6">
-            <SectionHeader
-                title="Amigos"
-                subtitle="Conecta con otros estudiantes de tu carrera y de ITSON."
-                accentLabel="Red social"
-                align="left"
-            />
+    const renderUserCard = (u: FollowUser) => {
+        const isMe = u.id === user?.id;
+        const iFollow = followingSet.has(u.id);
 
-            <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
+        return (
+            <div key={u.id} className="flex items-center gap-3 py-2.5 px-1">
+                <Link to={`/profile/${u.id}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    {u.avatar_url ? <img src={u.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover" /> : <UserIcon className="h-5 w-5 text-primary" />}
+                </Link>
+                <div className="flex-1 min-w-0">
+                    <Link to={`/profile/${u.id}`} className="text-[13px] font-semibold hover:text-primary truncate block">{u.full_name}</Link>
+                    {u.career && <p className="text-[11px] text-muted-foreground truncate">{u.career.name}</p>}
+                </div>
+                {!isMe && (
+                    <div className="shrink-0">
+                        {iFollow ? (
+                            <Button variant="outline" size="sm" className="text-[11px] h-7 px-3 rounded-lg" onClick={() => handleUnfollow(u.id)}>
+                                Siguiendo
+                            </Button>
+                        ) : (
+                            <Button size="sm" className="text-[11px] h-7 px-3 rounded-lg" onClick={() => handleFollow(u.id)}>
+                                Seguir
+                            </Button>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const emptyState = (message: string) => (
+        <div className="py-16 text-center">
+            <UsersIcon className="mx-auto h-10 w-10 text-muted-foreground/20" />
+            <p className="mt-3 text-sm text-muted-foreground">{message}</p>
+        </div>
+    );
+
+    return (
+        <div className="pb-20">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4">
+                {!isOwnPage && (
+                    <Link to={`/profile/${targetUserId}`} className="p-1.5 rounded-full hover:bg-muted transition-colors">
+                        <ArrowLeftIcon className="h-5 w-5" />
+                    </Link>
+                )}
+                <div>
+                    <h1 className="text-lg font-bold leading-tight">
+                        {isOwnPage ? 'Mi Red' : targetName || 'Red Social'}
+                    </h1>
+                    {!isOwnPage && <p className="text-[11px] text-muted-foreground">Conexiones de {targetName}</p>}
+                </div>
+            </div>
+
+            {/* Tabs — compact, no counters inline, just short labels */}
+            <div className="flex gap-0.5 rounded-xl border border-border bg-card p-0.5 mb-4">
                 {tabs.map(t => (
-                    <button key={t.key} onClick={() => setTab(t.key)} className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${tab === t.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                        {t.label}{t.count !== undefined ? ` (${t.count})` : ''}
+                    <button
+                        key={t.key}
+                        onClick={() => setTab(t.key)}
+                        className={`flex-1 flex flex-col items-center rounded-lg py-2 transition-colors ${
+                            tab === t.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        {t.count !== undefined && (
+                            <span className="text-sm font-bold leading-none">{t.count}</span>
+                        )}
+                        <span className="text-[10px] font-medium leading-tight mt-0.5">{t.label}</span>
                     </button>
                 ))}
             </div>
 
-            {tab === 'search' && (
-                <div className="flex gap-2">
-                    <div className="relative flex-1">
-                        <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="Buscar usuarios..." value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()} className="pl-10" />
-                    </div>
-                    <Button onClick={handleSearch}>Buscar</Button>
-                </div>
-            )}
-
             {loading ? (
-                <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
+                <ListSkeleton count={6} />
             ) : (
-                <div className="space-y-3">
-                    {tab === 'friends' && (friends.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-border py-16 text-center">
-                            <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground/30" />
-                            <p className="mt-4 text-muted-foreground">Aún no tienes amigos. ¡Busca y envía solicitudes!</p>
-                        </div>
-                    ) : friends.map(f => (
-                        <Card key={f.friendshipId} className="transition-all hover:border-primary/30">
-                            <CardContent className="flex items-center gap-4 py-4">
-                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                    {f.avatar_url ? <img src={f.avatar_url} alt="" className="h-full w-full rounded-xl object-cover" /> : <UsersIcon className="h-5 w-5 text-primary" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <Link to={`/profile/${f.id}`} className="font-medium hover:text-primary">{f.full_name}</Link>
-                                    {f.career && <p className="text-xs text-muted-foreground">{f.career.name}</p>}
-                                </div>
-                                <div className="flex gap-2">
-                                    <Link to={`/messages/${f.id}`}><Button variant="outline" size="sm">Mensaje</Button></Link>
-                                    <Button variant="ghost" size="sm" onClick={() => removeFriend(f.friendshipId)}><UserMinusIcon className="h-4 w-4 text-red-400" /></Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )))}
+                <div className="divide-y divide-border/50">
+                    {tab === 'friends' && (friends.length === 0
+                        ? emptyState(isOwnPage ? 'Sigue a alguien y cuando te sigan de vuelta, serán amigos.' : 'No tiene amigos aún.')
+                        : friends.map(f => renderUserCard(f))
+                    )}
 
-                    {tab === 'pending' && (pending.length === 0 ? (
-                        <div className="py-12 text-center text-muted-foreground">No hay solicitudes pendientes</div>
-                    ) : pending.map(r => (
-                        <Card key={r.id} className="transition-all hover:border-primary/30">
-                            <CardContent className="flex items-center gap-4 py-4">
-                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center"><UsersIcon className="h-5 w-5 text-primary" /></div>
-                                <div className="flex-1">
-                                    <p className="font-medium">{r.requester?.full_name}</p>
-                                    <p className="text-xs text-muted-foreground">{r.requester?.email}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button size="sm" onClick={() => respondRequest(r.id, 'accepted')}><CheckIcon className="mr-1 h-4 w-4" /> Aceptar</Button>
-                                    <Button variant="ghost" size="sm" onClick={() => respondRequest(r.id, 'rejected')}><XIcon className="h-4 w-4 text-red-400" /></Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )))}
+                    {tab === 'followers' && (followers.length === 0
+                        ? emptyState(isOwnPage ? 'Nadie te sigue aún.' : 'No tiene seguidores.')
+                        : followers.map(f => renderUserCard(f))
+                    )}
 
-                    {tab === 'sent' && (sent.length === 0 ? (
-                        <div className="py-12 text-center text-muted-foreground">No has enviado solicitudes</div>
-                    ) : sent.map(r => (
-                        <Card key={r.id}>
-                            <CardContent className="flex items-center gap-4 py-4">
-                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center"><UsersIcon className="h-5 w-5 text-primary" /></div>
-                                <div className="flex-1">
-                                    <p className="font-medium">{r.addressee?.full_name}</p>
-                                    <p className="text-xs text-muted-foreground">{r.addressee?.email}</p>
-                                </div>
-                                <Badge variant="secondary">Pendiente</Badge>
-                            </CardContent>
-                        </Card>
-                    )))}
-
-                    {tab === 'search' && searchResults.map(u => (
-                        <Card key={u.id} className="transition-all hover:border-primary/30">
-                            <CardContent className="flex items-center gap-4 py-4">
-                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center"><UsersIcon className="h-5 w-5 text-primary" /></div>
-                                <div className="flex-1">
-                                    <p className="font-medium">{u.full_name}</p>
-                                    {u.career && <p className="text-xs text-muted-foreground">{u.career.name}</p>}
-                                </div>
-                                <Button size="sm" onClick={() => sendRequest(u.id)}><UserPlusIcon className="mr-1 h-4 w-4" /> Agregar</Button>
-                            </CardContent>
-                        </Card>
-                    ))}
+                    {tab === 'following' && (following.length === 0
+                        ? emptyState(isOwnPage ? 'No sigues a nadie aún.' : 'No sigue a nadie.')
+                        : following.map(f => renderUserCard(f))
+                    )}
                 </div>
             )}
         </div>

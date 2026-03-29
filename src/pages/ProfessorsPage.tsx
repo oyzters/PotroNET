@@ -2,12 +2,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Link } from 'react-router-dom';
+import { ListSkeleton } from '@/components/ui/Skeleton';
 import {
-    SearchIcon, GraduationCapIcon, PlusIcon, XIcon, CheckCircleIcon, AwardIcon
+    SearchIcon, GraduationCapIcon, PlusIcon, XIcon, CheckCircleIcon
 } from 'lucide-react';
 
 interface Career { id: string; name: string }
@@ -20,17 +20,15 @@ interface ProfessorsResponse {
     pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
-// Function to generate Dicebear avatar
 function getAvatarUrl(name: string) {
     return `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(name)}&backgroundColor=f8fafc`;
 }
 
-// Function to get score color and neon effect
-function getScoreColor(rating: number) {
-    if (rating >= 4.5) return 'from-emerald-400 to-emerald-600 shadow-emerald-500/50 shadow-lg shadow-emerald-500/30';
-    if (rating >= 3.5) return 'from-blue-400 to-blue-600 shadow-blue-500/50 shadow-lg shadow-blue-500/30';
-    if (rating >= 2.5) return 'from-amber-400 to-amber-600 shadow-amber-500/50 shadow-lg shadow-amber-500/30';
-    return 'from-red-400 to-red-600 shadow-red-500/50 shadow-lg shadow-red-500/30';
+function getRatingColor(rating: number) {
+    if (rating >= 4.5) return 'bg-emerald-500';
+    if (rating >= 3.5) return 'bg-blue-500';
+    if (rating >= 2.5) return 'bg-amber-500';
+    return 'bg-red-500';
 }
 
 export function ProfessorsPage() {
@@ -50,7 +48,7 @@ export function ProfessorsPage() {
     const [requestDept, setRequestDept] = useState('');
     const [requestCareer, setRequestCareer] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [showSuccess, setShowSuccess] = useState(false); // ← confirmation modal
+    const [showSuccess, setShowSuccess] = useState(false);
 
     const fetchProfessors = useCallback(async () => {
         if (!session?.access_token) return;
@@ -88,7 +86,7 @@ export function ProfessorsPage() {
             });
             setShowRequest(false);
             setRequestName(''); setRequestDept(''); setRequestCareer('');
-            setShowSuccess(true); // Show confirmation modal
+            setShowSuccess(true);
         } catch { /* silent */ } finally { setSubmitting(false); }
     };
 
@@ -112,21 +110,24 @@ export function ProfessorsPage() {
                 </div>
             )}
 
-            {/* Hero Section */}
-            <SectionHeader
-                title="Directorio de Profesores"
-                subtitle="Evalúa y consulta calificaciones de profesores. Encuentra los mejores docentes para tu aprendizaje."
-                accentLabel="Evaluaciones ITSON"
-            >
-                <Button
-                    onClick={() => setShowRequest(!showRequest)}
-                    variant={showRequest ? 'outline' : 'default'}
-                    className="rounded-full px-6 shadow-lg shadow-primary/25"
-                >
-                    {showRequest ? <XIcon className="h-4 w-4 mr-2" /> : <PlusIcon className="h-4 w-4 mr-2" />}
-                    {showRequest ? 'Cancelar' : 'Agregar Profesor'}
-                </Button>
-            </SectionHeader>
+            <div className="px-4 md:px-8">
+                <div className="max-w-4xl mx-auto">
+                    <SectionHeader
+                        title="Profesores"
+                        subtitle="Evalúa y consulta calificaciones de profesores."
+                    >
+                        <Button
+                            onClick={() => setShowRequest(!showRequest)}
+                            variant={showRequest ? 'outline' : 'default'}
+                            size="sm"
+                            className="rounded-full px-4"
+                        >
+                            {showRequest ? <XIcon className="h-4 w-4 mr-1" /> : <PlusIcon className="h-4 w-4 mr-1" />}
+                            {showRequest ? 'Cancelar' : 'Agregar'}
+                        </Button>
+                    </SectionHeader>
+                </div>
+            </div>
 
             {/* Request Form */}
             {showRequest && (
@@ -134,23 +135,23 @@ export function ProfessorsPage() {
                     <div className="max-w-4xl mx-auto">
                         <div className="bg-card border border-border shadow-sm rounded-2xl p-6">
                             <h3 className="font-semibold text-lg mb-6">Solicitar agregar profesor</h3>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Input 
-                                    placeholder="Nombre del profesor *" 
-                                    value={requestName} 
-                                    onChange={(e) => setRequestName(e.target.value)} 
-                                    className="rounded-xl bg-background border-border/50" 
+                                <Input
+                                    placeholder="Nombre del profesor *"
+                                    value={requestName}
+                                    onChange={(e) => setRequestName(e.target.value)}
+                                    className="rounded-xl bg-background border-border/50"
                                 />
-                                <Input 
-                                    placeholder="Departamento (opcional)" 
-                                    value={requestDept} 
-                                    onChange={(e) => setRequestDept(e.target.value)} 
-                                    className="rounded-xl bg-background border-border/50" 
+                                <Input
+                                    placeholder="Departamento (opcional)"
+                                    value={requestDept}
+                                    onChange={(e) => setRequestDept(e.target.value)}
+                                    className="rounded-xl bg-background border-border/50"
                                 />
-                                <select 
-                                    value={requestCareer} 
-                                    onChange={(e) => setRequestCareer(e.target.value)} 
+                                <select
+                                    value={requestCareer}
+                                    onChange={(e) => setRequestCareer(e.target.value)}
                                     className="w-full rounded-xl border border-border/50 bg-background px-3 py-2.5 text-sm"
                                 >
                                     <option value="">Seleccionar carrera (opcional)</option>
@@ -158,16 +159,16 @@ export function ProfessorsPage() {
                                 </select>
                             </div>
                             <div className="flex gap-3 mt-4">
-                                <Button 
-                                    className="flex-1 rounded-xl" 
-                                    onClick={handleRequest} 
+                                <Button
+                                    className="flex-1 rounded-xl"
+                                    onClick={handleRequest}
                                     disabled={submitting || !requestName.trim()}
                                 >
                                     {submitting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : 'Enviar Solicitud'}
                                 </Button>
-                                <Button 
-                                    variant="outline" 
-                                    className="rounded-xl border-border/50" 
+                                <Button
+                                    variant="outline"
+                                    className="rounded-xl border-border/50"
                                     onClick={() => setShowRequest(false)}
                                 >
                                     Cancelar
@@ -179,43 +180,38 @@ export function ProfessorsPage() {
             )}
 
             {/* Search and Filters */}
-            <div className="px-4 md:px-8 pb-6">
+            <div className="px-4 md:px-8 pb-4">
                 <div className="max-w-4xl mx-auto">
-                    <div className="flex flex-col md:flex-row gap-4">
-                        {/* Search Bar */}
+                    <div className="flex flex-col md:flex-row gap-3">
                         <div className="relative flex-1">
-                            <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all"></div>
-                                <div className="relative bg-background border border-border/50 rounded-2xl shadow-lg hover:shadow-xl transition-all">
-                                    <div className="flex items-center">
-                                        <div className="pl-4 pr-3">
-                                            <SearchIcon className="h-5 w-5 text-muted-foreground" />
-                                        </div>
-                                        <Input
-                                            placeholder="Buscar profesor..."
-                                            value={search}
-                                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                                            className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base py-3 pl-2 pr-0 w-full"
-                                        />
+                            <div className="relative bg-background border border-border/50 rounded-xl">
+                                <div className="flex items-center">
+                                    <div className="pl-3 pr-2">
+                                        <SearchIcon className="h-4 w-4 text-muted-foreground" />
                                     </div>
+                                    <Input
+                                        placeholder="Buscar profesor..."
+                                        value={search}
+                                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                                        className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm py-2 pl-1 pr-0 w-full"
+                                    />
                                 </div>
                             </div>
                         </div>
-                        
-                        {/* Filters */}
-                        <div className="flex gap-3">
-                            <select 
-                                value={careerId} 
-                                onChange={(e) => { setCareerId(e.target.value); setPage(1); }} 
-                                className="rounded-xl border border-border/50 bg-background px-4 py-2 text-sm w-40"
+
+                        <div className="flex gap-2">
+                            <select
+                                value={careerId}
+                                onChange={(e) => { setCareerId(e.target.value); setPage(1); }}
+                                className="rounded-xl border border-border/50 bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">Todas las carreras</option>
                                 {careers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
-                            <select 
-                                value={sort} 
-                                onChange={(e) => { setSort(e.target.value); setPage(1); }} 
-                                className="rounded-xl border border-border/50 bg-background px-4 py-2 text-sm w-40"
+                            <select
+                                value={sort}
+                                onChange={(e) => { setSort(e.target.value); setPage(1); }}
+                                className="rounded-xl border border-border/50 bg-background px-3 py-2 text-sm"
                             >
                                 <option value="rating">Mejor calificación</option>
                                 <option value="reviews">Más evaluaciones</option>
@@ -230,9 +226,7 @@ export function ProfessorsPage() {
             <div className="px-4 md:px-8 pb-8">
                 <div className="max-w-4xl mx-auto">
                     {loading ? (
-                        <div className="flex justify-center py-16">
-                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                        </div>
+                        <ListSkeleton count={8} />
                     ) : professors.length === 0 ? (
                         <div className="text-center py-16">
                             <div className="inline-flex items-center justify-center w-20 h-20 bg-muted/20 rounded-full mb-6">
@@ -244,93 +238,22 @@ export function ProfessorsPage() {
                             </p>
                         </div>
                     ) : (
-                        <div className="space-y-0">
+                        <div>
                             {professors.map((prof) => (
-                                <Link to={`/professors/${prof.id}`} key={prof.id}>
-                                    <div className="bg-card border border-border shadow-sm rounded-2xl p-6 hover:bg-muted transition-all group mb-4">
-                                        {/* Mobile Layout */}
-                                        <div className="md:hidden">
-                                            <div className="flex items-start gap-3 p-1 rounded-lg">
-                                                <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
-                                                    <img src={getAvatarUrl(prof.full_name)} alt={prof.full_name} className="h-full w-full object-cover mix-blend-multiply" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <div className="flex-1 min-w-0 pr-1">
-                                                            <p className="text-base font-semibold text-white truncate">{prof.full_name}</p>
-                                                            <Badge variant="secondary" className="px-2 py-1 text-xs bg-zinc-700 text-zinc-300 mt-1 inline-block">
-                                                                {prof.career?.name || 'General'}
-                                                            </Badge>
-                                                        </div>
-                                                        <div className={`flex items-center justify-center h-12 w-12 rounded-lg text-sm font-bold shrink-0 bg-gradient-to-br ${getScoreColor(Number(prof.avg_rating || 0))} shadow-md ml-3`}
-                                                             style={{
-                                                               boxShadow: Number(prof.avg_rating || 0) >= 4.5 ? '0 0 20px rgba(52, 211, 153, 0.5)' :
-                                                                           Number(prof.avg_rating || 0) >= 3.5 ? '0 0 20px rgba(59, 130, 246, 0.5)' :
-                                                                           Number(prof.avg_rating || 0) >= 2.5 ? '0 0 20px rgba(251, 191, 36, 0.5)' :
-                                                                           '0 0 20px rgba(239, 68, 68, 0.5)'
-                                                             }}>
-                                                            <span className="text-sm font-bold text-white">
-                                                                {Number(prof.avg_rating || 0).toFixed(1)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-sm text-zinc-400 truncate mb-1">{prof.department || 'Sin departamento'}</p>
-                                                    <div className="flex items-center gap-2">
-                                                        <AwardIcon className="h-4 w-4 text-blue-400 fill-blue-400" />
-                                                        <p className="text-sm font-bold text-white">{Number(prof.avg_rating || 0).toFixed(1)}</p>
-                                                        <p className="text-sm text-zinc-400">({prof.total_reviews} reseñas)</p>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                <Link to={`/professors/${prof.id}`} key={prof.id} className="block">
+                                    <div className="flex items-center gap-3 py-4 px-1 border-b border-border/50 hover:bg-muted/50 transition-colors">
+                                        <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 overflow-hidden shrink-0">
+                                            <img src={getAvatarUrl(prof.full_name)} alt={prof.full_name} className="h-full w-full object-cover mix-blend-multiply" />
                                         </div>
-                                        
-                                        {/* Desktop Layout */}
-                                        <div className="hidden md:flex items-center gap-4">
-                                            {/* Avatar - Estilo original */}
-                                            <div className="relative">
-                                                <div className="h-14 w-14 shrink-0 overflow-hidden items-center justify-center rounded-full bg-primary/10 border border-primary/20">
-                                                    <img src={getAvatarUrl(prof.full_name)} alt={prof.full_name} className="h-full w-full object-cover mix-blend-multiply" />
-                                                </div>
-                                                {prof.user_id && (
-                                                    <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-background flex items-center justify-center">
-                                                        <CheckCircleIcon className="h-2 w-2 text-white" />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Info */}
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <h3 className="text-lg font-bold">{prof.full_name}</h3>
-                                                    <Badge variant="secondary" className="px-2 py-1 text-xs bg-secondary/60">
-                                                        {prof.career?.name || 'General'}
-                                                    </Badge>
-                                                </div>
-                                                <p className="text-muted-foreground text-sm mb-2">{prof.department || 'Sin departamento'}</p>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex items-center gap-1">
-                                                        <AwardIcon className="h-4 w-4 fill-primary text-primary" />
-                                                        <span className="font-semibold">{Number(prof.avg_rating || 0).toFixed(1)}</span>
-                                                        <span className="text-muted-foreground text-sm">({prof.total_reviews} reseñas)</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Rating Badge - Con efecto neón según puntaje */}
-                                            <div className="text-right">
-                                                <div className={`flex items-center justify-center h-12 w-12 rounded-xl bg-gradient-to-br ${getScoreColor(Number(prof.avg_rating || 0))} shadow-lg transition-all duration-300`}
-                                                     style={{
-                                                       boxShadow: Number(prof.avg_rating || 0) >= 4.5 ? '0 0 20px rgba(52, 211, 153, 0.5), 0 0 40px rgba(52, 211, 153, 0.3)' :
-                                                                 Number(prof.avg_rating || 0) >= 3.5 ? '0 0 20px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.3)' :
-                                                                 Number(prof.avg_rating || 0) >= 2.5 ? '0 0 20px rgba(251, 191, 36, 0.5), 0 0 40px rgba(251, 191, 36, 0.3)' :
-                                                                 '0 0 20px rgba(239, 68, 68, 0.5), 0 0 40px rgba(239, 68, 68, 0.3)',
-                                                       animation: 'pulse 2s infinite'
-                                                     }}>
-                                                    <span className="text-sm font-bold text-white">
-                                                        {Number(prof.avg_rating || 0).toFixed(1)}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-sm truncate">{prof.full_name}</p>
+                                            <p className="text-xs text-muted-foreground truncate">
+                                                {prof.career?.name || 'General'} · {prof.department || 'Sin departamento'}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">{prof.total_reviews} reseñas</p>
+                                        </div>
+                                        <div className={`flex items-center justify-center h-10 w-10 rounded-full text-xs font-bold text-white shrink-0 ${getRatingColor(Number(prof.avg_rating || 0))}`}>
+                                            {Number(prof.avg_rating || 0).toFixed(1)}
                                         </div>
                                     </div>
                                 </Link>
@@ -340,21 +263,21 @@ export function ProfessorsPage() {
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className="flex justify-center gap-2 pt-8">
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                disabled={page === 1} 
+                        <div className="flex justify-center gap-2 pt-6">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === 1}
                                 onClick={() => setPage(page - 1)}
                                 className="rounded-full border-border/50"
                             >
                                 Anterior
                             </Button>
                             <span className="flex items-center text-sm text-muted-foreground px-3">{page} / {totalPages}</span>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                disabled={page === totalPages} 
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === totalPages}
                                 onClick={() => setPage(page + 1)}
                                 className="rounded-full border-border/50"
                             >

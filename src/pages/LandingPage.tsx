@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import {
-    GraduationCapIcon,
     UsersIcon,
-    BookOpenIcon,
     StarIcon,
+    BookOpenIcon,
     MapIcon,
-    MessageCircleIcon,
+    LockKeyholeIcon,
+    SmartphoneIcon,
+    DownloadIcon,
     SunIcon,
     MoonIcon,
     ArrowRightIcon,
@@ -17,6 +18,7 @@ import {
     ShieldCheckIcon,
     MenuIcon,
     XIcon,
+    MessageCircleIcon,
 } from 'lucide-react';
 
 export function LandingPage() {
@@ -49,16 +51,16 @@ export function LandingPage() {
                 'Visualiza tu progreso académico con un mapa curricular digital. Marca las materias que ya aprobaste.',
         },
         {
-            icon: MessageCircleIcon,
-            title: 'Chat por Carrera',
+            icon: LockKeyholeIcon,
+            title: 'Chat Cifrado de Extremo a Extremo',
             description:
-                'Cada carrera tiene su propio chat grupal. Comunícate y colabora con estudiantes de tu programa.',
+                'Tus conversaciones son privadas. La mensajería de PotroNET utiliza cifrado para que solo tú y tu contacto puedan leer los mensajes.',
         },
         {
-            icon: GraduationCapIcon,
-            title: 'Recursos Académicos',
+            icon: SmartphoneIcon,
+            title: 'App Instalable (PWA)',
             description:
-                'Comparte y descarga resúmenes, guías de estudio, presentaciones y exámenes anteriores.',
+                'Instala PotroNET directamente en tu celular como una app nativa. Sin tiendas de aplicaciones, acceso directo desde tu pantalla de inicio.',
         },
     ];
 
@@ -136,8 +138,8 @@ export function LandingPage() {
             {/* Hero */}
             <section className="relative overflow-hidden">
                 <div className="absolute inset-0 -z-10">
-                    <div className="absolute left-1/2 top-0 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl" />
-                    <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-primary/5 blur-3xl" />
+                    <div className="absolute left-1/2 top-0 h-[250px] w-[250px] md:h-[500px] md:w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/3 md:bg-primary/6 blur-3xl" />
+                    <div className="absolute bottom-0 right-0 h-[180px] w-[180px] md:h-[350px] md:w-[350px] rounded-full bg-primary/2 md:bg-primary/4 blur-3xl" />
                 </div>
                 <div className="mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-32">
                     <div className="mx-auto max-w-3xl text-center">
@@ -180,7 +182,7 @@ export function LandingPage() {
                     {[
                         { value: '37', label: 'Carreras' },
                         { value: '100%', label: 'Gratuito' },
-                        { value: '∞', label: 'Recursos' },
+                        { value: 'PWA', label: 'Instalable' },
                         { value: '24/7', label: 'Acceso' },
                     ].map((stat) => (
                         <div key={stat.label} className="text-center">
@@ -243,7 +245,7 @@ export function LandingPage() {
                             <p className="text-muted-foreground">Solo usuarios verificados con correo institucional. Sin bots, sin spam, solo estudiantes reales compartiendo sus experiencias.</p>
                         </div>
                         <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-background to-card p-8 shadow-sm">
-                            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary/10 text-secondary">
+                            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                                 <BookOpenIcon className="h-7 w-7" />
                             </div>
                             <h3 className="mb-3 text-xl font-bold">Enfoque Académico</h3>
@@ -263,9 +265,9 @@ export function LandingPage() {
             {/* Security */}
             <section className="py-20 md:py-28">
                 <div className="mx-auto max-w-7xl px-4 md:px-8">
-                    <div className="mx-auto max-w-4xl rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-8 md:p-14 shadow-[0_0_40px_-15px_rgba(var(--primary),0.3)]">
+                    <div className="mx-auto max-w-4xl rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/3 to-transparent p-8 md:p-14">
                         <div className="flex flex-col items-center gap-8 text-center md:flex-row md:text-left">
-                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-primary/10 shadow-neon-primary">
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-primary/10">
                                 <ShieldCheckIcon className="h-10 w-10 text-primary" />
                             </div>
                             <div>
@@ -295,14 +297,46 @@ export function LandingPage() {
                 </div>
             </section>
 
+            {/* Install PWA */}
+            <section className="border-t border-border bg-card/50 py-20 md:py-28">
+                <div className="mx-auto max-w-7xl px-4 md:px-8">
+                    <div className="mx-auto max-w-3xl text-center">
+                        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10">
+                            <DownloadIcon className="h-8 w-8 text-primary" />
+                        </div>
+                        <h2 className="mb-4 text-3xl font-black md:text-4xl">
+                            Instálala en tu celular
+                        </h2>
+                        <p className="mb-10 text-lg text-muted-foreground">
+                            PotroNET es una Progressive Web App. Agrégala a tu pantalla de inicio y úsala como cualquier otra app, sin necesidad de descargarla desde una tienda.
+                        </p>
+                        <div className="grid gap-6 md:grid-cols-3">
+                            {[
+                                { step: '1', title: 'Abre en tu navegador', description: 'Visita PotroNET desde Chrome o Safari en tu celular.' },
+                                { step: '2', title: 'Menú del navegador', description: 'Toca el menú de compartir (Safari) o los tres puntos (Chrome).' },
+                                { step: '3', title: 'Agregar a inicio', description: 'Selecciona "Agregar a pantalla de inicio" y listo.' },
+                            ].map((item) => (
+                                <div key={item.step} className="rounded-2xl border border-border bg-card p-6 text-center">
+                                    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-lg">
+                                        {item.step}
+                                    </div>
+                                    <h3 className="mb-2 font-bold">{item.title}</h3>
+                                    <p className="text-sm text-muted-foreground">{item.description}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* Footer */}
             <footer className="border-t border-border bg-card/50 py-12 md:py-16">
                 <div className="mx-auto max-w-7xl px-4 md:px-8">
-                    <div className="grid gap-10 md:grid-cols-4 lg:gap-8">
+                    <div className="grid gap-10 md:grid-cols-3 lg:gap-8">
                         {/* Brand Column */}
                         <div className="md:col-span-2">
                             <div className="flex items-center gap-2 mb-4">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-neon-primary">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                                     <span className="text-sm font-black text-primary-foreground">P</span>
                                 </div>
                                 <span className="text-xl font-bold">
@@ -320,9 +354,9 @@ export function LandingPage() {
                             </div>
                         </div>
 
-                        {/* Legal Links */}
+                        {/* Links */}
                         <div>
-                            <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-foreground">Legal</h4>
+                            <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-foreground">Legal y Soporte</h4>
                             <ul className="space-y-3 text-sm text-muted-foreground">
                                 <li>
                                     <Link to="/terms" className="hover:text-primary transition-colors">Términos y Condiciones</Link>
@@ -333,21 +367,8 @@ export function LandingPage() {
                                 <li>
                                     <Link to="/guidelines" className="hover:text-primary transition-colors">Normas de la Comunidad</Link>
                                 </li>
-                            </ul>
-                        </div>
-
-                        {/* Resources Links */}
-                        <div>
-                            <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-foreground">Recursos</h4>
-                            <ul className="space-y-3 text-sm text-muted-foreground">
-                                <li>
-                                    <Link to="/docs" className="hover:text-primary transition-colors">Documentación API</Link>
-                                </li>
                                 <li>
                                     <a href="mailto:soporte@potronet.com" className="hover:text-primary transition-colors">Soporte Técnico</a>
-                                </li>
-                                <li>
-                                    <a href="https://itson.mx" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">Portal ITSON</a>
                                 </li>
                             </ul>
                         </div>
