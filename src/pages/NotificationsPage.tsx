@@ -50,7 +50,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function NotificationsPage() {
-    const { session } = useAuth();
+    const { session, user } = useAuth();
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unread, setUnread] = useState(0);
@@ -107,7 +107,7 @@ export function NotificationsPage() {
                 navigate('/feed');
                 break;
             case 'achievement':
-                navigate('/profile');
+                if (user?.id) navigate(`/profile/${user.id}`);
                 break;
             default:
                 break;

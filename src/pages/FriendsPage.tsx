@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ type Tab = 'friends' | 'followers' | 'following';
 
 export function FriendsPage() {
     const { session, user } = useAuth();
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const queryTab = searchParams.get('tab') as Tab | null;
     const queryUser = searchParams.get('user');
@@ -129,9 +130,9 @@ export function FriendsPage() {
             {/* Header */}
             <div className="flex items-center gap-3 mb-4">
                 {!isOwnPage && (
-                    <Link to={`/profile/${targetUserId}`} className="p-1.5 rounded-full hover:bg-muted transition-colors">
+                    <button onClick={() => navigate(-1)} className="p-1.5 rounded-full hover:bg-muted transition-colors">
                         <ArrowLeftIcon className="h-5 w-5" />
-                    </Link>
+                    </button>
                 )}
                 <div>
                     <h1 className="text-lg font-bold leading-tight">

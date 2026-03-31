@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,7 @@ function getAvatarUrl(name: string) {
 export function ProfessorDetailPage() {
     const { id } = useParams<{ id: string }>();
     const { session } = useAuth();
+    const navigate = useNavigate();
     const [professor, setProfessor] = useState<Professor | null>(null);
     const [reviews, setReviews] = useState<Review[]>([]);
     const [topQualities, setTopQualities] = useState<[string, number][]>([]);
@@ -118,9 +119,12 @@ export function ProfessorDetailPage() {
     return (
         <div className="space-y-6 pb-20 md:pb-0">
             <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md pt-4 pb-2 px-4 md:px-0 border-b border-border/50">
-                <Link to="/professors" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                    <ArrowLeftIcon className="h-4 w-4" /> Volver a Profesores
-                </Link>
+                <button
+                    onClick={() => navigate(-1)}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                    <ArrowLeftIcon className="h-4 w-4" /> Regresar
+                </button>
             </div>
 
             {/* Profile Header */}

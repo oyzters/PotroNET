@@ -11,7 +11,6 @@ import { ProfessorSuggestionCard } from "@/components/feed/ProfessorSuggestionCa
 import { TutoringCard } from "@/components/feed/TutoringCard";
 import { StreakCard } from "@/components/feed/StreakCard";
 import { NewUsersCard } from "@/components/feed/NewUsersCard";
-import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 
@@ -63,9 +62,8 @@ function WidgetSkeleton({ height }: { height: string }) {
 
 export function FeedPage() {
   const { session, user, profile } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
 
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -126,6 +124,13 @@ export function FeedPage() {
     setHasMore(true);
     fetchPublications(1, false);
   }, [fetchPublications]);
+
+  // Listen for the custom event fired by BottomNavigation to open the create-post modal
+  useEffect(() => {
+    const handler = () => setShowCreateModal(true);
+    window.addEventListener('open-create-post', handler);
+    return () => window.removeEventListener('open-create-post', handler);
+  }, []);
 
   // Fetch widget data once
   useEffect(() => {
@@ -252,13 +257,13 @@ export function FeedPage() {
       {/* Mobile Create Post Modal */}
       {createPortal(
         <AnimatePresence>
-          {location.hash === '#create' && (
+          {showCreateModal && (
             <>
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={() => navigate(-1)}
+                onClick={() => setShowCreateModal(false)}
                 className="md:hidden fixed inset-0 z-[150] bg-background/80 backdrop-blur-sm"
               />
               <motion.div
@@ -268,12 +273,12 @@ export function FeedPage() {
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
                 className="md:hidden fixed inset-x-0 bottom-0 z-[200] bg-background border-t border-border/50 rounded-t-3xl shadow-2xl overflow-hidden pb-safe max-h-[90vh] flex flex-col"
               >
-                <div className="w-full flex justify-center pt-3 pb-2" onClick={() => navigate(-1)}>
+                <div className="w-full flex justify-center pt-3 pb-2" onClick={() => setShowCreateModal(false)}>
                   <div className="w-12 h-1.5 bg-muted rounded-full" />
                 </div>
                 <div className="flex items-center justify-between px-4 pb-2 border-b border-border/20 shrink-0">
                   <h2 className="text-lg font-bold">Nueva publicación</h2>
-                  <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full h-8 w-8">
+                  <Button variant="ghost" size="icon" onClick={() => setShowCreateModal(false)} className="rounded-full h-8 w-8">
                     <XIcon className="h-4 w-4" />
                   </Button>
                 </div>
@@ -281,7 +286,7 @@ export function FeedPage() {
                   <CreatePost
                     onPost={async (content, tags, media) => {
                       await handleNewPost(content, tags, media);
-                      navigate(-1);
+                      setShowCreateModal(false);
                     }}
                   />
                 </div>

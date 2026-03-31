@@ -34,6 +34,9 @@ function ScrollToTop() {
     
     useEffect(() => {
         window.scrollTo(0, 0);
+        // Desplazamos al inicio el contenedor interno que usa PotroNET para todo el layout
+        const scrollArea = document.getElementById('main-scroll-area');
+        if (scrollArea) scrollArea.scrollTo({ top: 0, behavior: 'instant' });
     }, [pathname]);
     
     return null;
