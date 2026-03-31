@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 const moreItems = [
-    { to: '/feed#create', icon: PenSquareIcon, label: 'Publicar', highlight: true },
+    { to: '/feed#create', icon: PenSquareIcon, label: 'Publicar', highlight: true, isCreatePost: true },
     { to: '/professors', icon: GraduationCapIcon, label: 'Profesores' },
     { to: '/tutoring', icon: BookOpenIcon, label: 'Tutorías' },
     { to: '/friends', icon: UsersIcon, label: 'Mi Red' },
@@ -71,7 +71,19 @@ export function BottomNavigation() {
                             {moreItems.map(item => (
                                 <button
                                     key={item.to}
-                                    onClick={() => { setShowMore(false); navigate(item.to); }}
+                                    onClick={() => {
+                                        setShowMore(false);
+                                        if ((item as any).isCreatePost) {
+                                            if (location.pathname !== '/feed') {
+                                                navigate('/feed');
+                                                setTimeout(() => window.dispatchEvent(new Event('open-create-post')), 150);
+                                            } else {
+                                                window.dispatchEvent(new Event('open-create-post'));
+                                            }
+                                        } else {
+                                            navigate(item.to);
+                                        }
+                                    }}
                                     className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95 ${
                                         (item as any).highlight
                                             ? 'text-primary-foreground'
