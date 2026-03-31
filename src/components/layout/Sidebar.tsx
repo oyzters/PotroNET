@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRole } from '@/hooks/useRole';
 import {
     HomeIcon,
     UserIcon,
@@ -11,6 +12,8 @@ import {
     BellIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
+    ShieldIcon,
+    ShieldAlertIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -32,12 +35,21 @@ const navItems = [
 
 export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
     const { profile } = useAuth();
+    const { isModerator, isSudo } = useRole();
 
     const profileNav = profile
         ? [{ to: `/profile/${profile.id}`, icon: UserIcon, label: 'Mi Perfil' }]
         : [];
 
-    const allItems = [...navItems, ...profileNav];
+    const modNav = isModerator
+        ? [{ to: '/moderation', icon: ShieldIcon, label: 'Moderación' }]
+        : [];
+
+    const sudoNav = isSudo
+        ? [{ to: '/sudo-tools', icon: ShieldAlertIcon, label: 'Sudo Tools' }]
+        : [];
+
+    const allItems = [...navItems, ...profileNav, ...modNav, ...sudoNav];
     const sidebarWidth = collapsed ? 'w-[72px]' : 'w-64';
 
     return (

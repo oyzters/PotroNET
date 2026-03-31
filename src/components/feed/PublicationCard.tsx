@@ -3,14 +3,17 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+
 import { useAuth } from '@/contexts/AuthContext';
+import { useRole } from '@/hooks/useRole';
 import { api } from '@/lib/api';
+import { ModerationModal } from '@/components/moderation/ModerationModal';
+import { WarnUserModal } from '@/components/moderation/WarnUserModal';
+import type { ModerationCategory } from '@/components/moderation/ModerationModal';
 import {
     HeartIcon, TrashIcon, UserIcon, MessageCircleIcon, SendIcon,
     MoreHorizontalIcon, XIcon, ClipboardIcon, FlagIcon, ChevronLeftIcon, ChevronRightIcon,
+    ShieldIcon, ShieldAlertIcon, AlertTriangleIcon,
 } from 'lucide-react';
 
 interface Author {
@@ -73,8 +76,53 @@ export function PublicationCard({
     onDelete,
 }: PublicationCardProps) {
     const { session } = useAuth();
+    const { isModerator, canBan } = useRole();
     const { author } = publication;
     const isOwner = currentUserId === author.id;
+
+    // Moderation modals
+    const [showOptions, setShowOptions] = useState(false);
+    const [showModerationModal, setShowModerationModal] = useState(false);
+    const [showWarnModal, setShowWarnModal] = useState(false);
+    const [showBanModal, setShowBanModal] = useState(false);
+    const [isBanning, setIsBanning] = useState(false);
+
+    const handleModeratorDelete = async (category: ModerationCategory, reason: string) => {
+        if (!session?.access_token) return;
+        await api(`/moderation/publications/${publication.id}/remove`, {
+            method: 'POST',
+            token: session.access_token,
+            body: JSON.stringify({ category, reason }),
+        });
+        onDelete?.(publication.id);
+    };
+
+    const handleWarnAuthor = async (category: ModerationCategory, message: string) => {
+        if (!session?.access_token) return;
+        await api(`/moderation/users/${author.id}/warn`, {
+            method: 'POST',
+            token: session.access_token,
+            body: JSON.stringify({ category, message }),
+        });
+    };
+
+    const handleBanAuthor = async () => {
+        if (!session?.access_token || !canBan) return;
+        setIsBanning(true);
+        try {
+            await api(`/admin/users`, {
+                method: 'PATCH',
+                token: session.access_token,
+                body: JSON.stringify({ user_id: author.id, is_banned: true }),
+            });
+            setShowBanModal(false);
+            alert('Usuario baneado exitosamente.');
+        } catch (e: any) {
+            alert(e.message || 'Error al banear');
+        } finally {
+            setIsBanning(false);
+        }
+    };
 
     // Likes (local optimistic state)
     const [liked, setLiked] = useState(!!publication.user_liked);
@@ -209,26 +257,9 @@ export function PublicationCard({
                     <span className="text-xs text-muted-foreground">
                         {timeAgo(publication.created_at)}
                     </span>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8">
-                                <MoreHorizontalIcon className="h-5 w-5" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(publication.content)}>
-                                <ClipboardIcon className="mr-2 h-4 w-4" /> Copiar texto
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleReport}>
-                                <FlagIcon className="mr-2 h-4 w-4" /> Reportar
-                            </DropdownMenuItem>
-                            {isOwner && (
-                                <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(publication.id)}>
-                                    <TrashIcon className="mr-2 h-4 w-4" /> Eliminar
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8 active:scale-95 z-10" onClick={() => setShowOptions(true)}>
+                        <MoreHorizontalIcon className="h-5 w-5" />
+                    </Button>
                 </div>
             ) : (
                 <div className="flex items-center justify-between px-4 md:px-0">
@@ -244,34 +275,29 @@ export function PublicationCard({
                             )}
                         </Link>
                         <div>
-                            <Link to={`/profile/${author.id}`} className="text-[13px] font-semibold hover:underline leading-tight block">
-                                {author.full_name}
-                            </Link>
+                            <div className="flex items-center gap-1.5">
+                                <Link to={`/profile/${author.id}`} className="text-[13px] font-semibold hover:underline leading-tight block">
+                                    {author.full_name}
+                                </Link>
+                                {(author as any).role === 'admin' && (
+                                    <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-500">
+                                        <ShieldIcon className="h-2.5 w-2.5" />Admin
+                                    </span>
+                                )}
+                                {(author as any).role === 'sudo' && (
+                                    <span className="inline-flex items-center gap-0.5 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-500">
+                                        <ShieldAlertIcon className="h-2.5 w-2.5" />Sudo
+                                    </span>
+                                )}
+                            </div>
                             <span className="text-[11px] text-muted-foreground leading-none">
                                 {timeAgo(publication.created_at)}
                             </span>
                         </div>
                     </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8">
-                                <MoreHorizontalIcon className="h-5 w-5" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(publication.content)}>
-                                <ClipboardIcon className="mr-2 h-4 w-4" /> Copiar texto
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleReport}>
-                                <FlagIcon className="mr-2 h-4 w-4" /> Reportar
-                            </DropdownMenuItem>
-                            {isOwner && (
-                                <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(publication.id)}>
-                                    <TrashIcon className="mr-2 h-4 w-4" /> Eliminar
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8 active:scale-95 z-10" onClick={() => setShowOptions(true)}>
+                        <MoreHorizontalIcon className="h-5 w-5" />
+                    </Button>
                 </div>
             )}
 
@@ -608,6 +634,109 @@ export function PublicationCard({
                     </div>
                 </div>
             )}
+
+            {/* Options Action Sheet */}
+            {showOptions && (
+                <div className="fixed inset-0 z-[100] flex items-end justify-center" onClick={() => setShowOptions(false)}>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div className="relative w-full shadow-2xl md:max-w-sm rounded-t-2xl bg-card border-x border-t border-border pb-[env(safe-area-inset-bottom)] animate-in slide-in-from-bottom duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-border" /></div>
+                        
+                        <div className="flex flex-col p-3 space-y-1.5 max-h-[70vh] overflow-y-auto">
+                            <button onClick={() => { setShowOptions(false); navigator.clipboard.writeText(publication.content); }} className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted font-semibold text-[15px] transition-colors text-left text-foreground active:scale-[0.98]">
+                                <ClipboardIcon className="h-5 w-5 text-muted-foreground" /> Copiar texto
+                            </button>
+                            {!isOwner && (
+                                <button onClick={() => { setShowOptions(false); handleReport(); }} className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted font-semibold text-[15px] transition-colors text-left text-foreground active:scale-[0.98]">
+                                    <FlagIcon className="h-5 w-5 text-muted-foreground" /> Reportar publicación
+                                </button>
+                            )}
+                            {isOwner && (
+                                <button onClick={() => { setShowOptions(false); onDelete?.(publication.id); }} className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-red-500/10 font-bold text-[15px] transition-colors text-left text-red-500 active:scale-[0.98]">
+                                    <TrashIcon className="h-5 w-5" /> Eliminar publicación
+                                </button>
+                            )}
+                            
+                            {!isOwner && isModerator && (
+                                <>
+                                    <div className="h-px bg-border my-2" />
+                                    <span className="px-3 text-xs font-bold text-muted-foreground/60 uppercase tracking-widest py-1">Moderación</span>
+                                    <button onClick={() => { setShowOptions(false); setShowModerationModal(true); }} className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-destructive/10 font-bold text-[15px] transition-colors text-left text-destructive active:scale-[0.98]">
+                                        <TrashIcon className="h-5 w-5" /> Eliminar contenido
+                                    </button>
+                                    <button onClick={() => { setShowOptions(false); setShowWarnModal(true); }} className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-amber-500/10 font-bold text-[15px] transition-colors text-left text-amber-500 active:scale-[0.98]">
+                                        <AlertTriangleIcon className="h-5 w-5" /> Emitir advertencia
+                                    </button>
+                                    {canBan && (
+                                        <button onClick={() => { setShowOptions(false); setShowBanModal(true); }} className="flex items-center gap-3 p-3.5 rounded-xl bg-red-500/5 hover:bg-red-500/15 border border-red-500/20 font-bold text-[15px] transition-colors text-left text-red-600 active:scale-[0.98]">
+                                            <ShieldAlertIcon className="h-5 w-5" /> Banear usuario
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            <div className="pt-2">
+                                <Button variant="secondary" className="w-full rounded-xl h-12 text-base font-bold" onClick={() => setShowOptions(false)}>
+                                    Cancelar
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Ban Modal */}
+            {showBanModal && (
+                <div className="fixed inset-0 z-[110] flex items-end justify-center" onClick={() => setShowBanModal(false)}>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div className="relative w-full shadow-2xl md:max-w-sm rounded-t-2xl bg-card border-x border-t border-border p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-col items-center text-center space-y-3">
+                            <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                                <ShieldAlertIcon className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-foreground">Banear a {author.full_name}</h3>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    El usuario perderá acceso inmediato a PotroNET.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex flex-col gap-3">
+                            <Button 
+                                variant="destructive" 
+                                className="w-full h-12 text-base font-bold shadow-lg shadow-red-500/20" 
+                                onClick={handleBanAuthor}
+                                disabled={isBanning}
+                            >
+                                {isBanning ? 'Procesando...' : 'Confirmar Ban'}
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                className="w-full h-12 text-base font-bold" 
+                                onClick={() => setShowBanModal(false)}
+                                disabled={isBanning}
+                            >
+                                Cancelar
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Moderation Modals */}
+            <ModerationModal
+                isOpen={showModerationModal}
+                onClose={() => setShowModerationModal(false)}
+                onConfirm={handleModeratorDelete}
+                contentPreview={publication.content}
+                authorName={author.full_name}
+            />
+            <WarnUserModal
+                isOpen={showWarnModal}
+                onClose={() => setShowWarnModal(false)}
+                onConfirm={handleWarnAuthor}
+                userName={author.full_name}
+            />
         </article>
     );
 }

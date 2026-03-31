@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { useRole } from '@/hooks/useRole';
 import { NeonBackground } from '@/components/ui/NeonBackground';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
@@ -22,6 +23,8 @@ import { MessagesPage } from '@/pages/MessagesPage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { OnboardingPage } from '@/pages/OnboardingPage';
+import { ModerationPage } from '@/pages/ModerationPage';
+import { SudoToolsPage } from '@/pages/SudoToolsPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import type { ReactNode } from 'react';
 
@@ -67,6 +70,22 @@ function ProtectedPage({ children, noPaddingMobile }: { children: ReactNode, noP
     return <ProtectedRoute><AppLayout noPaddingMobile={noPaddingMobile}>{children}</AppLayout></ProtectedRoute>;
 }
 
+function AdminRoute({ children }: { children: ReactNode }) {
+    const { isModerator } = useRole();
+    const { loading } = useAuth();
+    if (loading) return null;
+    if (!isModerator) return <Navigate to="/feed" replace />;
+    return <>{children}</>;
+}
+
+function SudoRoute({ children }: { children: ReactNode }) {
+    const { isSudo } = useRole();
+    const { loading } = useAuth();
+    if (loading) return null;
+    if (!isSudo) return <Navigate to="/feed" replace />;
+    return <>{children}</>;
+}
+
 export function App() {
     return (
         <BrowserRouter>
@@ -93,6 +112,16 @@ export function App() {
                         <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
                         <Route path="/rankings" element={<ProtectedPage><RankingPage /></ProtectedPage>} />
                         <Route path="/settings" element={<ProtectedPage><SettingsPage /></ProtectedPage>} />
+                        <Route path="/moderation" element={
+                            <ProtectedPage>
+                                <AdminRoute><ModerationPage /></AdminRoute>
+                            </ProtectedPage>
+                        } />
+                        <Route path="/sudo-tools" element={
+                            <ProtectedPage>
+                                <SudoRoute><SudoToolsPage /></SudoRoute>
+                            </ProtectedPage>
+                        } />
                         <Route path="/terms" element={<TermsPage />} />
                         <Route path="/privacy" element={<PrivacyPage />} />
                         <Route path="/guidelines" element={<GuidelinesPage />} />

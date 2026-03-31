@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useRole } from '@/hooks/useRole';
 import { api } from '@/lib/api';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import {
@@ -10,6 +11,7 @@ import {
 import {
     UserIcon, BellIcon, ShieldIcon, PaletteIcon, InfoIcon,
     MailIcon, SunIcon, MoonIcon, MonitorIcon, ChevronRightIcon,
+    ShieldAlertIcon, ExternalLinkIcon,
 } from 'lucide-react';
 
 interface UserSettings {
@@ -33,6 +35,7 @@ const THEME_OPTIONS = [
 export function SettingsPage() {
     const { session, profile } = useAuth();
     const { toggleTheme, theme: currentTheme } = useTheme();
+    const { isModerator, isSudo } = useRole();
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -188,6 +191,51 @@ export function SettingsPage() {
                     </div>
                 </div>
             </section>
+
+            {/* Herramientas (admin/sudo) */}
+            {isModerator && (
+                <section className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-border/30">
+                        <ShieldIcon className="h-5 w-5 text-primary" />
+                        <h2 className="text-sm font-semibold">Herramientas</h2>
+                        <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                            {isSudo ? 'Sudo' : 'Admin'}
+                        </span>
+                    </div>
+                    <div className="divide-y divide-border/30">
+                        <Link to="/moderation" className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+                            <div className="flex items-center gap-3">
+                                <ShieldIcon className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm">Panel de Moderación</span>
+                            </div>
+                            <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
+                        </Link>
+                        {isSudo && (
+                            <>
+                                <Link to="/sudo-tools" className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <ShieldAlertIcon className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-sm">Sudo Tools</span>
+                                    </div>
+                                    <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
+                                </Link>
+                                <a
+                                    href="https://potronet-admin.vercel.app"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <ExternalLinkIcon className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-sm">PotroNET Admin</span>
+                                    </div>
+                                    <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
+                                </a>
+                            </>
+                        )}
+                    </div>
+                </section>
+            )}
 
             {/* Sobre */}
             <section className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
