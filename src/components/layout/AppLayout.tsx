@@ -17,9 +17,9 @@ export function AppLayout({ children, hideRightPanel = false }: AppLayoutProps) 
     const sidebarWidth = sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-64';
 
     return (
-        <div className="min-h-screen relative">
+        <div className="min-h-screen relative overscroll-none">
             <Navbar />
-            <div className="h-screen md:h-[calc(100vh-4rem)] overflow-y-auto pb-[4.5rem] md:pb-0">
+            <div className="h-screen md:h-[calc(100vh-4rem)] overflow-y-auto overscroll-none pb-[4.5rem] md:pb-0">
                 <div className="hidden md:block">
                     <Sidebar
                         isOpen={false}
