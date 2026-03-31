@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /$
+Allow: /login$
+Allow: /register$
+Allow: /terms$
+Allow: /privacy$
+Allow: /guidelines$
+Disallow: /feed/
+Disallow: /messages/
+Disallow: /profile/
+Disallow: /settings/
+Disallow: /friends/
+Disallow: /search/
+Disallow: /notifications/
+Disallow: /professors/
+Disallow: /tutoring/
+Disallow: /roadmap/
+
+Sitemap: https://potronet.com/sitemap.xml
