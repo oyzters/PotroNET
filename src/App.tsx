@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -28,6 +29,15 @@ import { SudoToolsPage } from '@/pages/SudoToolsPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import type { ReactNode } from 'react';
 
+function ScrollToTop() {
+    const { pathname } = useLocation();
+    
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [pathname]);
+    
+    return null;
+}
 function ProtectedRoute({ children }: { children: ReactNode }) {
     const { user, loading } = useAuth();
 
@@ -89,6 +99,7 @@ function SudoRoute({ children }: { children: ReactNode }) {
 export function App() {
     return (
         <BrowserRouter>
+            <ScrollToTop />
             <ThemeProvider>
                 <NeonBackground />
                 <AuthProvider>
