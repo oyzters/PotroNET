@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { PublicationCard } from '@/components/feed/PublicationCard';
+import { WarnUserModal } from '@/components/moderation/WarnUserModal';
+import { useRole } from '@/hooks/useRole';
 import {
     UserIcon, GraduationCapIcon, CalendarIcon, StarIcon, MailIcon,
     XIcon, BookOpenIcon,
@@ -17,6 +19,9 @@ import {
     MapIcon,
     ShieldCheckIcon,
     MessageCircleIcon,
+    AlertTriangleIcon,
+    BanIcon,
+    ShieldAlertIcon,
 } from 'lucide-react';
 import {
     Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
@@ -68,11 +73,15 @@ type WallTab = 'grid' | 'info';
 export function ProfilePage() {
     const { id } = useParams<{ id: string }>();
     const { session, user, refreshProfile } = useAuth();
+    const { isModerator, isSudo } = useRole();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [careers, setCareers] = useState<Career[]>([]);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [banning, setBanning] = useState(false);
+    const [showBanModal, setShowBanModal] = useState(false);
+    const [isWarnModalOpen, setIsWarnModalOpen] = useState(false);
     const [tab, setTab] = useState<WallTab>('grid');
 
     // Publications
@@ -222,6 +231,20 @@ export function ProfilePage() {
             setEditing(false);
             refreshProfile();
         } catch { /* silent */ } finally { setSaving(false); }
+    };
+
+    const handleToggleBan = async () => {
+        if (!session?.access_token || !profile) return;
+        setBanning(true);
+        try {
+            await api(`/admin/users`, {
+                method: 'PATCH',
+                body: JSON.stringify({ user_id: profile.id, is_banned: !profile.is_banned }),
+                token: session.access_token
+            });
+            setProfile(prev => prev ? { ...prev, is_banned: !prev.is_banned } : prev);
+            setShowBanModal(false);
+        } catch { /* */ } finally { setBanning(false); }
     };
 
     // Like a publication
@@ -397,13 +420,24 @@ export function ProfilePage() {
                     <div className="flex items-center gap-1.5 mb-0.5">
                         <h1 className="font-bold text-[15px] leading-tight flex items-center gap-1.5">
                             {profile.full_name}
-                            {(profile.role === 'sudo' || profile.role === 'admin') ? (
-                                <span className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                            {profile.role === 'sudo' ? (
+                                <span className="inline-flex items-center gap-0.5 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-500">
+                                    <ShieldCheckIcon className="h-3 w-3" />
+                                    Sudo
+                                </span>
+                            ) : profile.role === 'admin' ? (
+                                <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-bold text-blue-500">
                                     <ShieldCheckIcon className="h-3 w-3" />
                                     Admin
                                 </span>
                             ) : (
                                 <CheckIcon className="h-3.5 w-3.5 text-blue-500" />
+                            )}
+                            {profile.is_banned && (
+                                <span className="inline-flex items-center gap-0.5 rounded-md bg-destructive/15 px-1.5 py-0.5 text-[10px] font-bold text-destructive">
+                                    <BanIcon className="h-3 w-3" />
+                                    Baneado
+                                </span>
                             )}
                         </h1>
                     </div>
@@ -463,6 +497,41 @@ export function ProfilePage() {
                                     <MessageCircleIcon className="h-4 w-4" />
                                 </Button>
                             </Link>
+                            {isModerator && !isOwnProfile && profile.role !== 'sudo' && (
+                                <>
+                                    <Button 
+                                        variant="outline" 
+                                        className="h-8 text-xs font-semibold rounded-lg text-amber-500 border-amber-500/50 hover:bg-amber-500/10" 
+                                        size="icon"
+                                        onClick={() => setIsWarnModalOpen(true)}
+                                    >
+                                        <AlertTriangleIcon className="h-4 w-4" />
+                                    </Button>
+                                    <WarnUserModal
+                                        isOpen={isWarnModalOpen}
+                                        onClose={() => setIsWarnModalOpen(false)}
+                                        userName={profile.full_name}
+                                        onConfirm={async (cat, msg) => {
+                                            await api(`/moderation/users/${profile.id}/warn`, {
+                                                method: 'POST',
+                                                body: JSON.stringify({ category: cat, message: msg }),
+                                                token: session?.access_token
+                                            });
+                                        }}
+                                    />
+                                </>
+                            )}
+                            {isSudo && !isOwnProfile && profile.role !== 'sudo' && (
+                                <Button 
+                                    variant="outline" 
+                                    className={`h-8 text-xs font-semibold rounded-lg border-destructive/50 hover:bg-destructive/10 ${profile.is_banned ? 'text-emerald-500 border-emerald-500/50 hover:bg-emerald-500/10' : 'text-destructive'}`}
+                                    size="icon"
+                                    onClick={() => setShowBanModal(true)}
+                                    disabled={banning}
+                                >
+                                    <BanIcon className="h-4 w-4" />
+                                </Button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -686,6 +755,48 @@ export function ProfilePage() {
                 );
             })()}
 
+            {/* Ban Modal */}
+            {showBanModal && profile && (
+                <div className="fixed inset-0 z-[110] flex items-end justify-center" onClick={() => setShowBanModal(false)}>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div className="relative w-full shadow-2xl md:max-w-sm rounded-t-2xl bg-card border-x border-t border-border p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-col items-center text-center space-y-3">
+                            <div className={`h-12 w-12 rounded-full flex items-center justify-center ${profile.is_banned ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                <ShieldAlertIcon className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-foreground">
+                                    {profile.is_banned ? 'Desbanear' : 'Banear'} a {profile.full_name}
+                                </h3>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    {profile.is_banned 
+                                        ? 'El usuario recuperará acceso inmediato a PotroNET.'
+                                        : 'El usuario perderá acceso inmediato a PotroNET.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex flex-col gap-3">
+                            <Button 
+                                variant={profile.is_banned ? 'default' : 'destructive'}
+                                className={`w-full h-12 text-base font-bold ${!profile.is_banned && 'shadow-lg shadow-red-500/20'}`} 
+                                onClick={handleToggleBan}
+                                disabled={banning}
+                            >
+                                {banning ? 'Procesando...' : (profile.is_banned ? 'Confirmar Desban' : 'Confirmar Ban')}
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                className="w-full h-12 text-base font-bold" 
+                                onClick={() => setShowBanModal(false)}
+                                disabled={banning}
+                            >
+                                Cancelar
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
