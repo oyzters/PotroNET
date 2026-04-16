@@ -216,7 +216,7 @@ export function FeedPage() {
     }
   };
 
-  const handleNewPost = async (content: string, tags: string[], media?: Array<{ type: string; url: string }>) => {
+  const handleNewPost = async (content: string, tags: string[], media?: Array<{ type: string; url: string; key?: string }>) => {
     if (!session?.access_token) return;
     await api('/publications', {
       method: 'POST',
