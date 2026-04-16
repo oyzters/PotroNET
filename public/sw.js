@@ -64,7 +64,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET navigation requests for offline fallback
+  // Only handle top-level navigation requests for offline fallback.
+  // Everything else (XHR, fetch, cross-origin uploads, etc.) goes straight to
+  // the network without the SW re-issuing it, which would strip headers and
+  // break cross-origin PUTs like R2 presigned URLs.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -74,9 +77,5 @@ self.addEventListener('fetch', (event) => {
         });
       })
     );
-    return;
   }
-
-  // All other requests: pass through to network, no caching
-  event.respondWith(fetch(event.request));
 });
