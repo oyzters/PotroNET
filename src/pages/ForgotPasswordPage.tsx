@@ -3,18 +3,20 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SunIcon, MoonIcon, ArrowLeftIcon, MailIcon, CheckCircleIcon } from 'lucide-react';
 
+const ALLOWED_DOMAIN = '@potros.itson.edu.mx';
+
 export function ForgotPasswordPage() {
     const { forgotPassword } = useAuth();
     const { theme, toggleTheme } = useTheme();
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
     const [error, setError] = useState('');
+    const email = username.trim().toLowerCase() + ALLOWED_DOMAIN;
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -84,16 +86,22 @@ export function ForgotPasswordPage() {
                                     )}
                                     <Field>
                                         <FieldLabel htmlFor="forgot-email">Correo institucional</FieldLabel>
-                                        <Input
-                                            id="forgot-email"
-                                            type="email"
-                                            placeholder="tu.nombre@potros.itson.edu.mx"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            required
-                                        />
+                                        <div className="flex items-center overflow-hidden rounded-lg border border-input focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                                            <input
+                                                id="forgot-email"
+                                                type="text"
+                                                placeholder="tu.nombreID"
+                                                value={username}
+                                                onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
+                                                required
+                                                className="min-w-0 flex-1 bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+                                            />
+                                            <span className="shrink-0 select-none border-l border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+                                                {ALLOWED_DOMAIN}
+                                            </span>
+                                        </div>
                                     </Field>
-                                    <Button type="submit" className="w-full" disabled={loading}>
+                                    <Button type="submit" className="w-full" disabled={loading || !username.trim()}>
                                         {loading ? (
                                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
                                         ) : (
