@@ -267,26 +267,30 @@ export function MessagesPage() {
 
     const mediaUrlPattern = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|mp4|webm)(\?.*)?$/i;
 
+    const handleMediaLoaded = () => {
+        bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+    };
+
     const renderMessageContent = (content: string) => {
         if (mediaUrlPattern.test(content)) {
             const isVideo = /\.(mp4|webm)(\?.*)?$/i.test(content);
             if (isVideo) {
-                return <video src={content} controls playsInline preload="metadata" className="max-w-full rounded-lg max-h-[300px]" />;
+                return <video src={content} controls playsInline preload="metadata" onLoadedMetadata={handleMediaLoaded} className="max-w-full rounded-lg max-h-[300px]" />;
             }
-            return <img src={content} alt="" className="max-w-full rounded-lg max-h-[300px] object-cover" loading="lazy" />;
+            return <img src={content} alt="" onLoad={handleMediaLoaded} className="max-w-full rounded-lg max-h-[300px] object-cover" />;
         }
-        return <span className="text-[15px] leading-relaxed break-words">{content}</span>;
+        return <span className="text-[15px] leading-relaxed min-w-0 [overflow-wrap:anywhere]">{content}</span>;
     };
 
     const renderMessageContentDesktop = (content: string) => {
         if (mediaUrlPattern.test(content)) {
             const isVideo = /\.(mp4|webm)(\?.*)?$/i.test(content);
             if (isVideo) {
-                return <video src={content} controls playsInline preload="metadata" className="max-w-full rounded-lg max-h-[300px]" />;
+                return <video src={content} controls playsInline preload="metadata" onLoadedMetadata={handleMediaLoaded} className="max-w-full rounded-lg max-h-[300px]" />;
             }
-            return <img src={content} alt="" className="max-w-full rounded-lg max-h-[300px] object-cover" loading="lazy" />;
+            return <img src={content} alt="" onLoad={handleMediaLoaded} className="max-w-full rounded-lg max-h-[300px] object-cover" />;
         }
-        return <span className="text-sm leading-relaxed break-words">{content}</span>;
+        return <span className="text-sm leading-relaxed min-w-0 [overflow-wrap:anywhere]">{content}</span>;
     };
 
     const MEDIA_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'];
@@ -495,7 +499,7 @@ export function MessagesPage() {
                                         onTouchEnd={() => handleTouchEnd(msg.id, msg)}
                                     >
                                         <div
-                                            className={`max-w-[85%] rounded-2xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${msg.sender_id === user?.id ? 'bg-primary/95 text-white rounded-tr-md' : 'bg-white dark:bg-card text-foreground rounded-tl-md border border-border/50'}`}
+                                            className={`max-w-[85%] min-w-0 rounded-2xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${msg.sender_id === user?.id ? 'bg-primary/95 text-white rounded-tr-md' : 'bg-white dark:bg-card text-foreground rounded-tl-md border border-border/50'}`}
                                             style={{ transform: swipeStates[msg.id] ? `translateX(${swipeStates[msg.id]}px)` : 'translateX(0)' }}
                                         >
                                             {repliedMsg && (
@@ -535,7 +539,7 @@ export function MessagesPage() {
                 </div>
 
                 {/* Input Area */}
-                <div className="bg-white dark:bg-card pt-2 pb-5 px-2 z-10 border-t border-border shadow-sm flex flex-col relative">
+                <div className="bg-white dark:bg-card pt-2 px-2 z-10 border-t border-border shadow-sm flex flex-col relative" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
                     {showEmojiPicker && (
                         <div className="absolute bottom-full left-2 mb-2 z-50">
                             <EmojiPicker 
@@ -610,7 +614,7 @@ export function MessagesPage() {
         const primaryConvs = filteredConversations.filter(c => !c.is_request);
         const requestConvs = filteredConversations.filter(c => c.is_request);
         return (
-        <div className="pb-20 h-screen flex flex-col pt-4 bg-background relative z-10">
+        <div className="pb-20 h-dvh flex flex-col pt-4 bg-background relative z-10">
                 <div className="px-4 pb-2 flex justify-between items-center mb-2">
                     <div className="flex items-center gap-3">
                         <Link to="/" className="p-2 rounded-full hover:bg-muted text-primary transition-colors">
@@ -789,7 +793,7 @@ export function MessagesPage() {
 
     // Desktop layout - Always show sidebar + chat area
     return (
-        <div className="h-screen flex bg-background relative z-10">
+        <div className="h-dvh flex bg-background relative z-10">
             {/* Sidebar - User List */}
             <div className="w-80 border-r border-border flex flex-col bg-muted/20">
                 {/* Sidebar Header */}
@@ -1045,7 +1049,7 @@ export function MessagesPage() {
                                                 onTouchMove={(e) => handleTouchMove(e, msg.id)}
                                                 onTouchEnd={() => handleTouchEnd(msg.id, msg)}
                                             >
-                                                <div className={`max-w-[75%] rounded-2xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${
+                                                <div className={`max-w-[75%] min-w-0 rounded-2xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${
                                                     msg.sender_id === user?.id
                                                         ? 'bg-primary text-white rounded-tr-md'
                                                         : 'bg-muted text-foreground rounded-tl-md border border-border/50'

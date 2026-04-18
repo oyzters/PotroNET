@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export type ScheduleColor = 'blue' | 'emerald' | 'amber' | 'red' | 'violet' | 'pink' | 'cyan' | 'orange';
 
@@ -100,6 +101,7 @@ export function ScheduleBlockModal({ isOpen, onClose, onSave, onDelete, initial,
         return () => window.removeEventListener('keydown', h);
     }, [isOpen, onClose]);
 
+    useBodyScrollLock(isOpen);
     if (!isOpen) return null;
 
     const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };

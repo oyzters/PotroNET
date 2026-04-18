@@ -152,7 +152,7 @@ export function ResourcesPage() {
         : resources;
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-dvh">
             {/* Header */}
             <SectionHeader
                 title="Recursos"

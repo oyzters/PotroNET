@@ -33,7 +33,7 @@ export function ForgotPasswordPage() {
     };
 
     return (
-        <div className="flex min-h-screen flex-col bg-background">
+        <div className="flex min-h-dvh flex-col bg-background">
             <div className="pointer-events-none fixed inset-0 -z-10">
                 <div className="absolute left-1/4 top-0 h-[500px] w-[500px] rounded-full bg-primary/8 blur-3xl" />
             </div>

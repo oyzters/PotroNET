@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { ScheduleBlockModal, type ScheduleBlock, type ScheduleColor, type ScheduleDraft, COLOR_SWATCH } from './ScheduleBlockModal';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 // ─── Constants ───
 const DAYS_FULL = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -503,6 +504,7 @@ function ScheduleList({ blocks, onBlockClick }: ListProps) {
 // Read-only viewer (visitors)
 // ═══════════════════════════════════════════════════════════════
 function BlockViewer({ block, onClose }: { block: ScheduleBlock; onClose: () => void }) {
+    useBodyScrollLock(true);
     return (
         <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center" onClick={onClose}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -537,6 +539,7 @@ function BlockViewer({ block, onClose }: { block: ScheduleBlock; onClose: () => 
 // Prefs modal
 // ═══════════════════════════════════════════════════════════════
 function PrefsModal({ prefs, onChange, onClose }: { prefs: Prefs; onChange: (p: Prefs) => void; onClose: () => void }) {
+    useBodyScrollLock(true);
     return (
         <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center" onClick={onClose}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />

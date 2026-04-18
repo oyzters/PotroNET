@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { useInView } from '@/hooks/useInView';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -162,6 +163,7 @@ function PublicationCardInner({
 
     // Comments
     const [showComments, setShowComments] = useState(false);
+    useBodyScrollLock(showComments || showOptions);
     const [comments, setComments] = useState<Comment[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);
     const [commentText, setCommentText] = useState('');

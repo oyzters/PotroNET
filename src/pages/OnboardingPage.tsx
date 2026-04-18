@@ -229,7 +229,7 @@ export function OnboardingPage() {
     const isLast = step === steps.length - 1;
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="flex min-h-dvh items-center justify-center bg-background p-4">
             <div className="w-full max-w-lg">
                 {/* Progress */}
                 <div className="mb-8 flex justify-center gap-2">

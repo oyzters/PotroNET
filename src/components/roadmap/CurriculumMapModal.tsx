@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface Subject { id: string; name: string; semester: number; credits: number; career_id: string }
 
@@ -16,6 +17,8 @@ export function CurriculumMapModal({ open, onClose, subjects, initialStatuses, o
     const [statuses, setStatuses] = useState<Record<string, string>>({});
     const [saving, setSaving] = useState(false);
     const backdropRef = useRef<HTMLDivElement>(null);
+
+    useBodyScrollLock(open);
 
     // Re-initialize local state each time modal opens
     useEffect(() => {

@@ -12,6 +12,7 @@ import {
     BookOpenIcon, SearchIcon, PlusIcon, UserIcon, CalendarIcon, XIcon, ClockIcon, CheckIcon, XCircleIcon
 } from 'lucide-react';
 import { WeeklyCalendar, type TimeBlock } from '@/components/tutoring/WeeklyCalendar';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface Tutor { id: string; full_name: string; avatar_url: string; email: string; reputation: number; career: { id: string; name: string } | null }
 interface Offer {
@@ -82,6 +83,7 @@ export function TutoringPage() {
 
     // Session request modal
     const [requestOffer, setRequestOffer] = useState<Offer | null>(null);
+    useBodyScrollLock(!!requestOffer);
     const [reqDate, setReqDate] = useState('');
     const [reqStart, setReqStart] = useState('');
     const [reqEnd, setReqEnd] = useState('');
@@ -176,7 +178,7 @@ export function TutoringPage() {
     const completedSessions = sessions.filter(s => s.status === 'completed');
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-dvh">
             <div className="px-4 md:px-8">
                 <div className="max-w-4xl mx-auto">
                     <SectionHeader

@@ -128,7 +128,7 @@ export function NotificationsPage() {
     };
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-dvh">
             {/* Hero Section */}
             <SectionHeader
                 title="Notificaciones"
@@ -185,17 +185,23 @@ export function NotificationsPage() {
 
                                             {/* Content */}
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div className="flex-1">
-                                                        <h3 className={`text-sm mb-1 ${!n.is_read ? 'font-semibold text-foreground' : 'font-medium text-foreground/90'}`}>
-                                                            {n.title}
-                                                        </h3>
-                                                        {n.body && (
-                                                            <p className="text-muted-foreground text-xs leading-relaxed">{n.body}</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                                                        {n.type === 'follow' && !followingBack.has(n.reference_id) && (
+                                                <div className="flex items-start gap-2 mb-1">
+                                                    <h3 className={`flex-1 min-w-0 text-sm leading-snug [overflow-wrap:anywhere] ${!n.is_read ? 'font-semibold text-foreground' : 'font-medium text-foreground/90'}`}>
+                                                        {n.title}
+                                                    </h3>
+                                                    {!n.is_read && (
+                                                        <Badge className="shrink-0 mt-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-primary text-primary-foreground">
+                                                            Nuevo
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                {n.body && (
+                                                    <p className="text-muted-foreground text-xs leading-relaxed [overflow-wrap:anywhere]">{n.body}</p>
+                                                )}
+
+                                                {n.type === 'follow' && (
+                                                    <div className="mt-2">
+                                                        {!followingBack.has(n.reference_id) ? (
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
@@ -204,20 +210,15 @@ export function NotificationsPage() {
                                                             >
                                                                 Seguir de vuelta
                                                             </Button>
-                                                        )}
-                                                        {n.type === 'follow' && followingBack.has(n.reference_id) && (
+                                                        ) : (
                                                             <Badge className="rounded-full px-2 py-0.5 text-xs bg-green-500/20 text-green-600 border-green-500/30">
                                                                 Siguiendo
                                                             </Badge>
                                                         )}
-                                                        {!n.is_read && (
-                                                            <Badge className="px-1.5 py-0.5 text-xs font-medium bg-primary text-primary-foreground">
-                                                                Nuevo
-                                                            </Badge>
-                                                        )}
                                                     </div>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                )}
+
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                                                     <BellIcon className="h-3 w-3" />
                                                     <span>{timeAgo(n.created_at)}</span>
                                                 </div>

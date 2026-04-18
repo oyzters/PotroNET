@@ -29,8 +29,8 @@ export function Navbar() {
         <header className="sticky top-0 z-50 hidden md:flex h-16 w-full items-center border-b px-4 md:px-6 transition-shadow duration-300"
             style={{
                 background: 'var(--glass-bg)',
-                backdropFilter: 'blur(24px) saturate(1.8)',
-                WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+                backdropFilter: 'blur(20px) saturate(1.2)',
+                WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
                 borderColor: 'var(--glass-border)',
                 boxShadow: '0 1px 0 var(--glass-border), 0 4px 24px oklch(0.68 0.15 237 / 0.06)',
             }}

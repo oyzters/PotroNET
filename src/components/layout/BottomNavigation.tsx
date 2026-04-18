@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import {
     HomeIcon,
     SearchIcon,
@@ -46,6 +47,8 @@ export function BottomNavigation() {
 
     const profilePath = profile ? `/profile/${profile.id}` : '/login';
     const isProfileActive = location.pathname.startsWith('/profile/');
+
+    useBodyScrollLock(showMore);
 
     const handleSignOut = async () => {
         setShowMore(false);
@@ -128,8 +131,8 @@ export function BottomNavigation() {
                 className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
                 style={{
                     background: 'var(--glass-bg)',
-                    backdropFilter: 'blur(24px) saturate(1.8)',
-                    WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+                    backdropFilter: 'blur(20px) saturate(1.2)',
+                    WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
                     borderTop: '1px solid var(--glass-border)',
                     boxShadow: '0 -2px 20px oklch(0.68 0.15 237 / 0.1)',
                     paddingBottom: 'env(safe-area-inset-bottom, 0px)',

@@ -2,24 +2,26 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    StarIcon, ArrowLeftIcon, CheckIcon, XIcon,
+    StarIcon, ArrowLeftIcon, CheckIcon, XIcon, SparklesIcon, MessageSquareIcon,
 } from 'lucide-react';
 
 interface Career { id: string; name: string }
 interface Professor {
     id: string; full_name: string; department: string; avg_rating: number;
-    total_reviews: number; career: Career | null;
+    total_reviews: number; career: Career | null; nickname?: string | null;
 }
 interface Review {
     id: string; teaching_quality: number; clarity: number; student_treatment: number;
     exam_difficulty: number; overall_rating: number; qualities: string[];
     weaknesses: string[]; comment: string; subject_name: string; created_at: string;
 }
+interface MyReview extends Review { professor_id: string; user_id: string }
 
 const QUALITIES = ['explica claramente', 'domina la materia', 'accesible para dudas', 'clases dinámicas', 'puntual', 'justo al evaluar', 'motiva al estudiante', 'material de apoyo'];
 const WEAKNESSES_LIST = ['evalúa muy difícil', 'poca disponibilidad', 'mala organización', 'clases aburridas', 'impuntual', 'injusto al calificar', 'no responde dudas', 'material insuficiente'];
@@ -48,51 +50,100 @@ export function ProfessorDetailPage() {
     const [subjectName, setSubjectName] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [formMessage, setFormMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [myReview, setMyReview] = useState<MyReview | null>(null);
+
+    // Nickname suggestion
+    const [showNicknameModal, setShowNicknameModal] = useState(false);
+    const [nicknameInput, setNicknameInput] = useState('');
+    const [suggestingNickname, setSuggestingNickname] = useState(false);
+    const [nicknameMessage, setNicknameMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+    useBodyScrollLock(showNicknameModal);
 
     useEffect(() => {
         const fetchData = async () => {
             if (!session?.access_token || !id) return;
             setLoading(true);
             try {
-                const data = await api<{ professor: Professor; reviews: Review[]; aggregated: { topQualities: [string, number][]; topWeaknesses: [string, number][] } }>(`/professors/${id}`, { token: session.access_token });
+                const [data, mine] = await Promise.all([
+                    api<{ professor: Professor; reviews: Review[]; aggregated: { topQualities: [string, number][]; topWeaknesses: [string, number][] } }>(`/professors/${id}`, { token: session.access_token }),
+                    api<{ review: MyReview | null }>(`/professors/reviews?professor_id=${id}`, { token: session.access_token }).catch(() => ({ review: null })),
+                ]);
                 setProfessor(data.professor);
                 setReviews(data.reviews);
                 setTopQualities(data.aggregated.topQualities);
                 setTopWeaknesses(data.aggregated.topWeaknesses);
+                setMyReview(mine.review);
             } catch { /* silent */ } finally { setLoading(false); }
         };
         fetchData();
     }, [id, session?.access_token]);
 
+    const prefillFromMyReview = (r: MyReview) => {
+        setRatings({
+            teaching_quality: r.teaching_quality,
+            clarity: r.clarity,
+            student_treatment: r.student_treatment,
+            exam_difficulty: r.exam_difficulty,
+        });
+        setSelectedQualities(r.qualities || []);
+        setSelectedWeaknesses(r.weaknesses || []);
+        setComment(r.comment || '');
+        setSubjectName(r.subject_name || '');
+    };
+
+    const openForm = () => {
+        setFormMessage(null);
+        if (myReview) prefillFromMyReview(myReview);
+        setShowForm(true);
+    };
+
+    const closeForm = () => {
+        setShowForm(false);
+        setFormMessage(null);
+    };
+
+    const handleSuggestNickname = async () => {
+        if (!session?.access_token || !id) return;
+        const trimmed = nicknameInput.trim();
+        if (!trimmed) return;
+        setSuggestingNickname(true);
+        setNicknameMessage(null);
+        try {
+            await api(`/professors/${id}/nickname-suggestions`, {
+                method: 'POST', token: session.access_token,
+                body: JSON.stringify({ nickname: trimmed }),
+            });
+            setNicknameInput('');
+            setNicknameMessage({ type: 'success', text: '¡Gracias! Tu sugerencia está pendiente de aprobación.' });
+            setTimeout(() => setShowNicknameModal(false), 1500);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Error al enviar sugerencia';
+            setNicknameMessage({ type: 'error', text: msg });
+        } finally { setSuggestingNickname(false); }
+    };
+
     const handleSubmit = async () => {
         if (!session?.access_token) return;
         setSubmitting(true);
         setFormMessage(null);
+        const isEditing = !!myReview;
         try {
-            await api('/professors/reviews', {
-                method: 'POST', token: session.access_token,
+            const { review: saved } = await api<{ review: MyReview }>('/professors/reviews', {
+                method: isEditing ? 'PUT' : 'POST', token: session.access_token,
                 body: JSON.stringify({ professor_id: id, ...ratings, qualities: selectedQualities, weaknesses: selectedWeaknesses, comment, subject_name: subjectName }),
             });
-            // Refresh data
             const data = await api<{ professor: Professor; reviews: Review[]; aggregated: { topQualities: [string, number][]; topWeaknesses: [string, number][] } }>(`/professors/${id}`, { token: session.access_token });
             setProfessor(data.professor);
             setReviews(data.reviews);
             setTopQualities(data.aggregated.topQualities);
             setTopWeaknesses(data.aggregated.topWeaknesses);
+            setMyReview(saved);
             setShowForm(false);
-            setRatings({ teaching_quality: 0, clarity: 0, student_treatment: 0, exam_difficulty: 0 });
-            setSelectedQualities([]);
-            setSelectedWeaknesses([]);
-            setComment('');
-            setSubjectName('');
-            setFormMessage({ type: 'success', text: 'Tu evaluación fue enviada exitosamente.' });
+            setFormMessage({ type: 'success', text: isEditing ? 'Tu evaluación fue actualizada.' : 'Tu evaluación fue enviada exitosamente.' });
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'Error al enviar la evaluación';
-            if (msg.toLowerCase().includes('ya evaluaste')) {
-                setFormMessage({ type: 'error', text: 'Ya calificaste a este profesor.' });
-            } else {
-                setFormMessage({ type: 'error', text: msg });
-            }
+            setFormMessage({ type: 'error', text: msg });
         } finally { setSubmitting(false); }
     };
 
@@ -133,11 +184,27 @@ export function ProfessorDetailPage() {
                     <img src={getAvatarUrl(professor.full_name)} alt={professor.full_name} className="h-full w-full object-cover mix-blend-multiply" />
                 </div>
                 
-                <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
+                <h1 className="text-2xl font-bold flex items-center justify-center gap-2 flex-wrap">
                     {professor.full_name}
                 </h1>
-                <p className="text-sm text-muted-foreground mt-1">{professor.department || 'Sin departamento'}</p>
+                {professor.nickname && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/30 px-3 py-1 text-sm font-semibold text-primary">
+                        <SparklesIcon className="h-3.5 w-3.5" />
+                        {professor.nickname}
+                    </div>
+                )}
+                <p className="text-sm text-muted-foreground mt-2">{professor.department || 'Sin departamento'}</p>
                 {professor.career && <Badge variant="secondary" className="mt-2 bg-secondary/60">{professor.career.name}</Badge>}
+
+                {session && (
+                    <button
+                        onClick={() => { setShowNicknameModal(true); setNicknameMessage(null); setNicknameInput(''); }}
+                        className="mt-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                        <SparklesIcon className="h-3 w-3" />
+                        {professor.nickname ? 'Sugerir otro apodo' : 'Sugerir un apodo'}
+                    </button>
+                )}
 
                 {/* Unified Stats */}
                 <div className="flex gap-8 mt-6 w-full justify-center">
@@ -162,13 +229,13 @@ export function ProfessorDetailPage() {
 
                 {session && (
                     <Button
-                        onClick={() => { setShowForm(!showForm); setFormMessage(null); }}
+                        onClick={() => showForm ? closeForm() : openForm()}
                         variant={showForm ? 'outline' : 'default'}
                         className={`mt-8 w-full md:w-auto min-w-[200px] rounded-full h-11 font-semibold text-md transition-all ${
                             !showForm ? 'shadow-neon-primary' : ''
                         }`}
                     >
-                        {showForm ? 'Cerrar Formulario' : 'Evaluar Profesor'}
+                        {showForm ? 'Cerrar Formulario' : myReview ? 'Editar Evaluación' : 'Evaluar Profesor'}
                     </Button>
                 )}
 
@@ -186,7 +253,7 @@ export function ProfessorDetailPage() {
             {/* Review form */}
             {showForm && (
                 <Card className="border-primary/30">
-                    <CardHeader><CardTitle className="text-base">Tu evaluación (anónima)</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-base">{myReview ? 'Editar tu evaluación (anónima)' : 'Tu evaluación (anónima)'}</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
                         <input placeholder="Materia (opcional)" value={subjectName} onChange={(e) => setSubjectName(e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
                         <div className="space-y-3 rounded-lg border border-border p-4">
@@ -218,7 +285,7 @@ export function ProfessorDetailPage() {
                             </div>
                         )}
                         <Button onClick={handleSubmit} disabled={submitting || Object.values(ratings).some(v => v === 0)}>
-                            {submitting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : 'Enviar Evaluación'}
+                            {submitting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : myReview ? 'Guardar Cambios' : 'Enviar Evaluación'}
                         </Button>
                     </CardContent>
                 </Card>
@@ -271,7 +338,12 @@ export function ProfessorDetailPage() {
                                 </div>
                             </div>
                             {r.subject_name && <p className="text-xs font-semibold text-primary/80 mb-2 uppercase tracking-wide">{r.subject_name}</p>}
-                            {r.comment && <p className="text-sm leading-relaxed mb-4">{r.comment}</p>}
+                            {r.comment && (
+                                <div className="mt-2 mb-3 flex gap-2 rounded-lg bg-muted/40 border-l-2 border-primary/40 p-3">
+                                    <MessageSquareIcon className="h-4 w-4 shrink-0 text-primary/60 mt-0.5" />
+                                    <p className="text-sm leading-relaxed [overflow-wrap:anywhere] min-w-0">{r.comment}</p>
+                                </div>
+                            )}
                             
                             {(r.qualities?.length > 0 || r.weaknesses?.length > 0) && (
                                 <div className="flex flex-wrap gap-1.5 mt-2 pt-3 border-t border-border/50">
@@ -283,6 +355,56 @@ export function ProfessorDetailPage() {
                     ))}
                 </div>
             </div>
+
+            {showNicknameModal && (
+                <div
+                    onClick={() => setShowNicknameModal(false)}
+                    className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm"
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        className="relative w-full md:max-w-sm rounded-t-2xl md:rounded-2xl bg-card border-x border-t md:border border-border shadow-2xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-200"
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="flex items-center gap-2 text-base font-semibold">
+                                <SparklesIcon className="h-4 w-4 text-primary" />
+                                Sugerir apodo
+                            </h3>
+                            <button onClick={() => setShowNicknameModal(false)} className="text-muted-foreground hover:text-foreground">
+                                <XIcon className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                            ¿Cómo le conocen los estudiantes? Un admin revisará tu sugerencia.
+                        </p>
+                        <input
+                            autoFocus
+                            value={nicknameInput}
+                            onChange={e => setNicknameInput(e.target.value)}
+                            maxLength={40}
+                            placeholder="Ej: El Terminator"
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+                        />
+                        <p className="mt-1 text-[10px] text-muted-foreground text-right">{nicknameInput.length}/40</p>
+                        {nicknameMessage && (
+                            <div className={`mt-2 rounded-lg px-3 py-2 text-xs font-medium ${
+                                nicknameMessage.type === 'success'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            }`}>
+                                {nicknameMessage.text}
+                            </div>
+                        )}
+                        <Button
+                            onClick={handleSuggestNickname}
+                            disabled={suggestingNickname || !nicknameInput.trim()}
+                            className="mt-4 w-full h-10 rounded-full font-semibold"
+                        >
+                            {suggestingNickname ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : 'Enviar sugerencia'}
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

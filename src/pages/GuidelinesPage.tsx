@@ -7,7 +7,7 @@ export function GuidelinesPage() {
     const { theme, toggleTheme } = useTheme();
 
     return (
-        <div className="min-h-screen bg-background text-foreground">
+        <div className="min-h-dvh bg-background text-foreground">
             {/* Top bar */}
             <div className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl md:px-8">
                 <Link

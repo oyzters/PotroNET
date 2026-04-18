@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangleIcon, XIcon, TrashIcon, LoaderIcon } from 'lucide-react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export const MODERATION_CATEGORIES = [
     { value: 'spam', label: '🚫 Spam', description: 'Contenido repetitivo o publicitario' },
@@ -28,6 +29,7 @@ export function ModerationModal({ isOpen, onClose, onConfirm, contentPreview, au
     const [reason, setReason] = useState('');
     const [loading, setLoading] = useState(false);
 
+    useBodyScrollLock(isOpen);
     if (!isOpen) return null;
 
     const handleConfirm = async () => {
