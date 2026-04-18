@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangleIcon, XIcon, LoaderIcon } from 'lucide-react';
 import { MODERATION_CATEGORIES, type ModerationCategory } from './ModerationModal';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface WarnUserModalProps {
     isOpen: boolean;
@@ -15,6 +16,7 @@ export function WarnUserModal({ isOpen, onClose, onConfirm, userName }: WarnUser
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
 
+    useBodyScrollLock(isOpen);
     if (!isOpen) return null;
 
     const handleConfirm = async () => {

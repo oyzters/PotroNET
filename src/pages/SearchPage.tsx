@@ -94,7 +94,7 @@ export function SearchPage() {
     const noResults = results && (results.users?.length || 0) === 0 && (results.professors?.length || 0) === 0 && (results.tutoring?.length || 0) === 0;
 
     return (
-        <div className="min-h-screen pb-4">
+        <div className="min-h-dvh pb-4">
             {/* Search Bar */}
             <div className="px-4 pt-4 pb-2">
                 <div className="relative flex items-center bg-muted/50 rounded-xl">

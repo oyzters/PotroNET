@@ -9,11 +9,13 @@ import { ListSkeleton } from '@/components/ui/Skeleton';
 import {
     SearchIcon, GraduationCapIcon, PlusIcon, XIcon, CheckCircleIcon
 } from 'lucide-react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface Career { id: string; name: string }
 interface Professor {
     id: string; full_name: string; department: string; avg_rating: number;
     total_reviews: number; career: Career | null; user_id?: string;
+    nickname?: string | null;
 }
 interface ProfessorsResponse {
     professors: Professor[];
@@ -47,8 +49,10 @@ export function ProfessorsPage() {
     const [requestName, setRequestName] = useState('');
     const [requestDept, setRequestDept] = useState('');
     const [requestCareer, setRequestCareer] = useState('');
+    const [requestNickname, setRequestNickname] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    useBodyScrollLock(showSuccess);
 
     const fetchProfessors = useCallback(async () => {
         if (!session?.access_token) return;
@@ -82,16 +86,16 @@ export function ProfessorsPage() {
         try {
             await api('/professors/requests', {
                 method: 'POST', token: session.access_token,
-                body: JSON.stringify({ professor_name: requestName, department: requestDept, career_id: requestCareer || null }),
+                body: JSON.stringify({ professor_name: requestName, department: requestDept, career_id: requestCareer || null, nickname: requestNickname }),
             });
             setShowRequest(false);
-            setRequestName(''); setRequestDept(''); setRequestCareer('');
+            setRequestName(''); setRequestDept(''); setRequestCareer(''); setRequestNickname('');
             setShowSuccess(true);
         } catch { /* silent */ } finally { setSubmitting(false); }
     };
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-dvh">
             {/* Confirmation modal */}
             {showSuccess && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSuccess(false)}>
@@ -136,11 +140,18 @@ export function ProfessorsPage() {
                         <div className="bg-card border border-border shadow-sm rounded-2xl p-6">
                             <h3 className="font-semibold text-lg mb-6">Solicitar agregar profesor</h3>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Input
                                     placeholder="Nombre del profesor *"
                                     value={requestName}
                                     onChange={(e) => setRequestName(e.target.value)}
+                                    className="rounded-xl bg-background border-border/50"
+                                />
+                                <Input
+                                    placeholder="Apodo (opcional, ej: El Terminator)"
+                                    value={requestNickname}
+                                    maxLength={40}
+                                    onChange={(e) => setRequestNickname(e.target.value)}
                                     className="rounded-xl bg-background border-border/50"
                                 />
                                 <Input
@@ -246,7 +257,14 @@ export function ProfessorsPage() {
                                             <img src={getAvatarUrl(prof.full_name)} alt={prof.full_name} className="h-full w-full object-cover mix-blend-multiply" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-sm truncate">{prof.full_name}</p>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <p className="font-semibold text-sm truncate">{prof.full_name}</p>
+                                                {prof.nickname && (
+                                                    <span className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                                        {prof.nickname}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="text-xs text-muted-foreground truncate">
                                                 {prof.career?.name || 'General'} · {prof.department || 'Sin departamento'}
                                             </p>

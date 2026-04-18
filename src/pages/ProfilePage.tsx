@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { PublicationCard } from '@/components/feed/PublicationCard';
 import { WarnUserModal } from '@/components/moderation/WarnUserModal';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useRole } from '@/hooks/useRole';
 import {
     UserIcon, GraduationCapIcon, CalendarIcon, StarIcon, MailIcon,
@@ -116,6 +117,7 @@ export function ProfilePage() {
 
     // Avatar preview
     const [avatarExpanded, setAvatarExpanded] = useState(false);
+    useBodyScrollLock(avatarExpanded || showBanModal || isWarnModalOpen);
 
     // Image upload
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
