@@ -22,7 +22,9 @@ import {
     AlertTriangleIcon,
     BanIcon,
     ShieldAlertIcon,
+    ClockIcon,
 } from 'lucide-react';
+import { ScheduleView } from '@/components/profile/ScheduleView';
 import {
     Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -35,6 +37,7 @@ interface Profile {
     semester: number; role: string; reputation: number; is_banned: boolean;
     interests: string[]; career: Career | null; created_at: string;
     followers_count: number; following_count: number; friends_count: number;
+    schedule_visibility?: 'public' | 'followers' | 'private';
 }
 interface Publication {
     id: string; content: string; tags: string[]; likes_count: number;
@@ -68,7 +71,7 @@ async function compressImage(file: File, maxWidth: number, maxHeight: number, qu
     });
 }
 
-type WallTab = 'grid' | 'info';
+type WallTab = 'grid' | 'info' | 'horario';
 
 export function ProfilePage() {
     const { id } = useParams<{ id: string }>();
@@ -96,6 +99,7 @@ export function ProfilePage() {
     const [editCareer, setEditCareer] = useState('');
     const [editSemester, setEditSemester] = useState('1');
     const [editInterests, setEditInterests] = useState('');
+    const [editScheduleVisibility, setEditScheduleVisibility] = useState<'public' | 'followers' | 'private'>('public');
 
     // Follow
     const isOwnProfile = user?.id === id;
@@ -133,6 +137,7 @@ export function ProfilePage() {
                 setEditCareer(profileData.profile.career_id || '');
                 setEditSemester(String(profileData.profile.semester || 1));
                 setEditInterests((profileData.profile.interests || []).join(', '));
+                setEditScheduleVisibility(profileData.profile.schedule_visibility || 'public');
             } catch { /* silent */ } finally { setLoading(false); }
         };
         fetchData();
@@ -225,7 +230,7 @@ export function ProfilePage() {
             const interests = editInterests.split(',').map(s => s.trim()).filter(Boolean);
             const data = await api<{ profile: Profile }>(`/profiles/${id}`, {
                 method: 'PATCH', token: session.access_token,
-                body: JSON.stringify({ full_name: editName, bio: editBio, career_id: editCareer || null, semester: parseInt(editSemester), interests }),
+                body: JSON.stringify({ full_name: editName, bio: editBio, career_id: editCareer || null, semester: parseInt(editSemester), interests, schedule_visibility: editScheduleVisibility }),
             });
             setProfile(data.profile);
             setEditing(false);
@@ -578,6 +583,19 @@ export function ProfilePage() {
                                     </SelectContent>
                                 </Select>
                             </Field>
+                            <Field>
+                                <FieldLabel>Visibilidad del horario</FieldLabel>
+                                <Select value={editScheduleVisibility} onValueChange={v => setEditScheduleVisibility(v as 'public' | 'followers' | 'private')}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectItem value="public">Público — lo ve todo PotroNET</SelectItem>
+                                            <SelectItem value="followers">Solo seguidores</SelectItem>
+                                            <SelectItem value="private">Privado — solo yo</SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </Field>
                             <Button onClick={handleSave} disabled={saving} className="w-full">
                                 {saving ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : 'Guardar Cambios'}
                             </Button>
@@ -588,13 +606,13 @@ export function ProfilePage() {
 
             {/* ── TABS ── */}
             <div className="flex border-b border-border bg-background">
-                {(['grid', 'info'] as WallTab[]).map(t => (
+                {(['grid', 'info', 'horario'] as WallTab[]).map(t => (
                     <button key={t} onClick={() => setTab(t)}
                         className={`flex-1 py-3.5 text-[13px] font-semibold flex justify-center items-center gap-2 transition-colors relative ${tab === t ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}
                     >
-                        {t === 'grid' ? <ImageIcon className="h-4 w-4" /> : <BookOpenIcon className="h-4 w-4" />}
+                        {t === 'grid' ? <ImageIcon className="h-4 w-4" /> : t === 'info' ? <BookOpenIcon className="h-4 w-4" /> : <ClockIcon className="h-4 w-4" />}
                         <span className="uppercase tracking-wider">
-                            {t === 'grid' ? 'Posts' : 'Info'}
+                            {t === 'grid' ? 'Posts' : t === 'info' ? 'Info' : 'Horario'}
                         </span>
                         {tab === t && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-foreground mx-[10%]" />}
                     </button>
@@ -636,6 +654,15 @@ export function ProfilePage() {
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* ── TAB: HORARIO ── */}
+            {tab === 'horario' && session?.access_token && id && (
+                <ScheduleView
+                    userId={id}
+                    isOwnProfile={isOwnProfile}
+                    token={session.access_token}
+                />
             )}
 
             {/* ── TAB: INFO ── */}
