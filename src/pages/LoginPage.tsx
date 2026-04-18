@@ -1,34 +1,65 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, type FormEvent } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { SunIcon, MoonIcon, ArrowLeftIcon, LogInIcon } from 'lucide-react';
+import { SunIcon, MoonIcon, ArrowLeftIcon, LogInIcon, MailIcon, CheckCircleIcon } from 'lucide-react';
 
 export function LoginPage() {
-    const { signIn, signInWithGoogle } = useAuth();
+    const { signIn, signInWithGoogle, resendVerification } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [unverifiedEmail, setUnverifiedEmail] = useState('');
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendSuccess, setResendSuccess] = useState('');
+    const [verifiedSuccess, setVerifiedSuccess] = useState(searchParams.get('verified') === 'true');
+
+    useEffect(() => {
+        if (verifiedSuccess) {
+            const t = setTimeout(() => setVerifiedSuccess(false), 6000);
+            return () => clearTimeout(t);
+        }
+    }, [verifiedSuccess]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
+        setUnverifiedEmail('');
         setLoading(true);
 
         try {
             await signIn(email, password);
             navigate('/feed');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+            const msg = err instanceof Error ? err.message : 'Error al iniciar sesión';
+            if (msg === 'EMAIL_NOT_VERIFIED') {
+                setUnverifiedEmail(email);
+            } else {
+                setError(msg);
+            }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleResend = async () => {
+        setResendLoading(true);
+        setResendSuccess('');
+        try {
+            const msg = await resendVerification(unverifiedEmail);
+            setResendSuccess(msg);
+        } catch {
+            setResendSuccess('Correo reenviado. Revisa tu bandeja de entrada.');
+        } finally {
+            setResendLoading(false);
         }
     };
 
@@ -64,6 +95,43 @@ export function LoginPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {verifiedSuccess && (
+                            <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-600">
+                                <CheckCircleIcon className="h-4 w-4 shrink-0" />
+                                Correo verificado. Ya puedes iniciar sesión.
+                            </div>
+                        )}
+                        {unverifiedEmail ? (
+                            <div className="flex flex-col items-center gap-4 py-4 text-center">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10">
+                                    <MailIcon className="h-7 w-7 text-amber-500" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-foreground">Verifica tu correo</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Enviamos un enlace de verificación a{' '}
+                                        <span className="font-medium text-foreground">{unverifiedEmail}</span>.
+                                        Revisa tu bandeja de entrada y haz clic en el enlace.
+                                    </p>
+                                </div>
+                                {resendSuccess ? (
+                                    <p className="text-sm text-green-600">{resendSuccess}</p>
+                                ) : (
+                                    <Button variant="outline" size="sm" onClick={handleResend} disabled={resendLoading}>
+                                        {resendLoading ? (
+                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                        ) : 'Reenviar correo de verificación'}
+                                    </Button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => { setUnverifiedEmail(''); setResendSuccess(''); }}
+                                    className="text-sm text-muted-foreground hover:text-foreground"
+                                >
+                                    Volver al inicio de sesión
+                                </button>
+                            </div>
+                        ) : (
                         <form onSubmit={handleSubmit}>
                             <FieldGroup>
                                 {error && (
@@ -83,7 +151,12 @@ export function LoginPage() {
                                     />
                                 </Field>
                                 <Field>
-                                    <FieldLabel htmlFor="login-password">Contraseña</FieldLabel>
+                                    <div className="flex items-center justify-between">
+                                        <FieldLabel htmlFor="login-password">Contraseña</FieldLabel>
+                                        <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-primary">
+                                            ¿Olvidaste tu contraseña?
+                                        </Link>
+                                    </div>
                                     <Input
                                         id="login-password"
                                         type="password"
@@ -128,6 +201,7 @@ export function LoginPage() {
                                 </Button>
                             </FieldGroup>
                         </form>
+                        )}
                     </CardContent>
                     <CardFooter className="justify-center">
                         <p className="text-sm text-muted-foreground">
