@@ -46,7 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 token: accessToken,
             });
             setProfile(data.user);
-        } catch {
+        } catch (err) {
+            console.error('[AuthContext] fetchProfile failed:', err);
             setProfile(null);
         }
     };
