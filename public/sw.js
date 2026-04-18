@@ -92,11 +92,13 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'PotroNET';
   const options = {
     body: payload.body || '',
-    icon: payload.icon || '/potronet.png',
     badge: payload.badge || '/favicon.png',
     tag: payload.tag || 'potronet',
     data: { url: payload.url || '/', ...(payload.data || {}) },
   };
+  // Only set icon if explicitly provided — otherwise Android uses the PWA
+  // manifest icon alone, avoiding a duplicate "source" logo on the right.
+  if (payload.icon) options.icon = payload.icon;
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
