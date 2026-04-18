@@ -28,6 +28,8 @@ interface AuthContextType {
     signUp: (email: string, password: string, fullName: string) => Promise<string>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
+    forgotPassword: (email: string, redirectTo?: string) => Promise<string>;
+    resendVerification: (email: string) => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -78,8 +80,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!email.endsWith('@potros.itson.edu.mx')) {
             throw new Error('Solo se permiten correos @potros.itson.edu.mx');
         }
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const data = await api<{
+            user: { id: string; email: string };
+            session: { access_token: string; refresh_token: string; expires_at: number };
+        }>('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        });
+        await supabase.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+        });
     };
 
     const signInWithGoogle = async () => {
@@ -112,8 +123,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const forgotPassword = async (email: string, redirectTo?: string): Promise<string> => {
+        const data = await api<{ message: string }>('/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email, redirect_to: redirectTo }),
+        });
+        return data.message;
+    };
+
+    const resendVerification = async (email: string): Promise<string> => {
+        const data = await api<{ message: string }>('/auth/resend-verification', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        });
+        return data.message;
+    };
+
     return (
-        <AuthContext.Provider value={{ user, profile, session, loading, signIn, signInWithGoogle, signUp, signOut, refreshProfile }}>
+        <AuthContext.Provider value={{ user, profile, session, loading, signIn, signInWithGoogle, signUp, signOut, refreshProfile, forgotPassword, resendVerification }}>
             {children}
         </AuthContext.Provider>
     );

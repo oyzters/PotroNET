@@ -24,6 +24,8 @@ import { MessagesPage } from '@/pages/MessagesPage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { OnboardingPage } from '@/pages/OnboardingPage';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { ModerationPage } from '@/pages/ModerationPage';
 import { SudoToolsPage } from '@/pages/SudoToolsPage';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -110,6 +112,8 @@ export function App() {
                         <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
                         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
                         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+                        <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+                        <Route path="/reset-password" element={<ResetPasswordPage />} />
                         <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
                         <Route path="/feed" element={<ProtectedPage noPaddingMobile><FeedPage /></ProtectedPage>} />
                         <Route path="/profile/:id" element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
