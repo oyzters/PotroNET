@@ -170,7 +170,7 @@ export function SudoToolsPage() {
 
             {/* PotroNET Admin badge */}
             <a
-                href="https://potronet-admin.vercel.app"
+                href="https://admin.potronet.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"

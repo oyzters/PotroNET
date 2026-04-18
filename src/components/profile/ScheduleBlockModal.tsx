@@ -159,7 +159,7 @@ export function ScheduleBlockModal({ isOpen, onClose, onSave, onDelete, initial,
                             <FieldLabel className="text-xs">Día</FieldLabel>
                             <Select value={String(draft.day_of_week)} onValueChange={v => setDraft(d => ({ ...d, day_of_week: Number(v) }))}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="z-[200]">
                                     <SelectGroup>
                                         {[1, 2, 3, 4, 5].map(n => (
                                             <SelectItem key={n} value={String(n)}>{DAY_NAMES[n]}</SelectItem>

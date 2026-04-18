@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
 import { api } from "@/lib/api";
 import { FeedSkeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/button";
@@ -60,35 +61,34 @@ function WidgetSkeleton({ height }: { height: string }) {
   );
 }
 
+type FeedStatus = 'loading' | 'idle' | 'fetching-more' | 'error' | 'exhausted';
+
 export function FeedPage() {
   const { session, user, profile } = useAuth();
+  const toast = useToast();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [publications, setPublications] = useState<Publication[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [status, setStatus] = useState<FeedStatus>('loading');
 
   // Widget data
   const [rankingUsers, setRankingUsers] = useState<any[]>([]);
   const [professors, setProfessors] = useState<any[]>([]);
   const [tutoringOffers, setTutoringOffers] = useState<any[]>([]);
   const [newUsers, setNewUsers] = useState<any[]>([]);
-
   const [widgetsLoading, setWidgetsLoading] = useState(true);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const loadingRef = useRef(false);
+  const nextPageRef = useRef(1);
+  const inFlightRef = useRef(false);
   const widgetsFetched = useRef(false);
 
-  const fetchPublications = useCallback(
-    async (pageNum: number, append: boolean) => {
-      if (!session?.access_token || loadingRef.current) return;
-
-      loadingRef.current = true;
-      if (append) setLoadingMore(true);
-      else setLoading(true);
+  // Fetch one page. Manages the state machine and dedupes concurrent calls.
+  const fetchPage = useCallback(
+    async (pageNum: number, { append }: { append: boolean }) => {
+      if (!session?.access_token || inFlightRef.current) return;
+      inFlightRef.current = true;
+      setStatus(append ? 'fetching-more' : 'loading');
 
       try {
         const data = await api<PublicationsResponse>(
@@ -96,34 +96,40 @@ export function FeedPage() {
           { token: session.access_token }
         );
 
-        if (append) {
-          setPublications((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
-            const newPubs = data.publications.filter((p) => !existingIds.has(p.id));
-            return [...prev, ...newPubs];
-          });
-        } else {
-          setPublications(data.publications);
-        }
+        setPublications((prev) => {
+          if (!append) return data.publications;
+          const seen = new Set(prev.map((p) => p.id));
+          const merged = [...prev];
+          for (const p of data.publications) if (!seen.has(p.id)) merged.push(p);
+          return merged;
+        });
 
-        setHasMore(pageNum < data.pagination.totalPages);
+        const hasMore = pageNum < data.pagination.totalPages;
+        nextPageRef.current = pageNum + 1;
+        setStatus(hasMore ? 'idle' : 'exhausted');
       } catch (e) {
-        console.error(e);
+        setStatus('error');
+        if (!append) {
+          toast.error(e instanceof Error ? e.message : 'No se pudieron cargar las publicaciones');
+        }
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
-        loadingRef.current = false;
+        inFlightRef.current = false;
       }
     },
-    [session?.access_token]
+    [session?.access_token, toast]
   );
+
+  const loadNext = useCallback(() => {
+    fetchPage(nextPageRef.current, { append: nextPageRef.current > 1 });
+  }, [fetchPage]);
 
   // Initial load
   useEffect(() => {
-    setPage(1);
-    setHasMore(true);
-    fetchPublications(1, false);
-  }, [fetchPublications]);
+    if (!session?.access_token) return;
+    nextPageRef.current = 1;
+    fetchPage(1, { append: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.access_token]);
 
   // Listen for the custom event fired by BottomNavigation to open the create-post modal
   useEffect(() => {
@@ -150,41 +156,28 @@ export function FeedPage() {
     }).finally(() => setWidgetsLoading(false));
   }, [session?.access_token]);
 
-  // Load more pages
-  useEffect(() => {
-    if (page > 1) {
-      fetchPublications(page, true);
-    }
-  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Infinite scroll observer
+  // Infinite scroll observer. Re-attached each time status becomes 'idle'
+  // so that a fresh intersection check fires after every successful fetch —
+  // otherwise the observer wouldn't re-notify when the sentinel is still in
+  // view from the previous page (IntersectionObserver only fires on CHANGE).
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
+    if (typeof IntersectionObserver === 'undefined') return;
+    if (status !== 'idle') return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loadingRef.current) {
-          setPage((prev) => {
-            // Only increment if we still have more
-            setHasMore((currentHasMore) => {
-              if (currentHasMore) {
-                setPage((p) => p + 1);
-              }
-              return currentHasMore;
-            });
-            return prev;
-          });
-        }
+      ([entry]) => {
+        if (entry.isIntersecting && !inFlightRef.current) loadNext();
       },
-      { rootMargin: "300px" }
+      { rootMargin: '400px' } // pre-fetch ~1 viewport before hitting bottom
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, []); // stable — no deps, uses refs and functional setState
+  }, [status, loadNext]);
 
-  const handleLike = async (publicationId: string) => {
+  const handleLike = useCallback(async (publicationId: string) => {
     if (!session?.access_token) return;
     try {
       const data = await api<{ liked: boolean }>(`/publications/${publicationId}/likes`, {
@@ -201,9 +194,9 @@ export function FeedPage() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [session?.access_token]);
 
-  const handleDelete = async (publicationId: string) => {
+  const handleDelete = useCallback(async (publicationId: string) => {
     if (!session?.access_token) return;
     try {
       await api(`/publications/${publicationId}`, {
@@ -211,10 +204,12 @@ export function FeedPage() {
         token: session.access_token,
       });
       setPublications((prev) => prev.filter((p) => p.id !== publicationId));
+      toast.success('Publicación eliminada');
     } catch (e) {
       console.error(e);
+      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar la publicación');
     }
-  };
+  }, [session?.access_token, toast]);
 
   const handleNewPost = async (content: string, tags: string[], media?: Array<{ type: string; url: string; key?: string }>) => {
     if (!session?.access_token) return;
@@ -223,9 +218,8 @@ export function FeedPage() {
       body: JSON.stringify({ content, tags, media: media || [] }),
       token: session.access_token,
     });
-    setPage(1);
-    setHasMore(true);
-    fetchPublications(1, false);
+    nextPageRef.current = 1;
+    fetchPage(1, { append: false });
   };
 
   return (
@@ -299,7 +293,7 @@ export function FeedPage() {
 
       {/* Publications */}
       <div className="pb-20">
-        {loading ? (
+        {status === 'loading' && publications.length === 0 ? (
           <FeedSkeleton />
         ) : publications.length === 0 ? (
           <div className="text-center py-16">
@@ -344,12 +338,20 @@ export function FeedPage() {
             ))}
 
             {/* Sentinel for infinite scroll */}
-            <div ref={sentinelRef} className="py-6 text-center">
-              {loadingMore && (
-                <div className="h-6 w-6 animate-spin rounded-full border-3 border-primary border-t-transparent mx-auto" />
+            <div ref={sentinelRef} className="py-6 text-center min-h-[1px]">
+              {status === 'fetching-more' && (
+                <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-primary border-t-transparent mx-auto" />
               )}
-              {!hasMore && publications.length > 0 && (
-                <p className="text-xs text-muted-foreground">No hay más publicaciones</p>
+              {status === 'error' && (
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-xs text-muted-foreground">No se pudieron cargar más publicaciones</p>
+                  <Button variant="outline" size="sm" onClick={loadNext}>
+                    Reintentar
+                  </Button>
+                </div>
+              )}
+              {status === 'exhausted' && publications.length > 0 && (
+                <p className="text-xs text-muted-foreground">Has visto todas las publicaciones</p>
               )}
             </div>
           </>

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { ToastProvider } from '@/contexts/ToastContext';
 import { useRole } from '@/hooks/useRole';
 import { NeonBackground } from '@/components/ui/NeonBackground';
 import { LandingPage } from '@/pages/LandingPage';
@@ -108,6 +109,7 @@ export function App() {
             <ScrollToTop />
             <ThemeProvider>
                 <NeonBackground />
+                <ToastProvider>
                 <AuthProvider>
                     <Routes>
                         <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
@@ -148,6 +150,7 @@ export function App() {
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </AuthProvider>
+                </ToastProvider>
             </ThemeProvider>
         </BrowserRouter>
     );

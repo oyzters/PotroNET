@@ -303,7 +303,7 @@ export function SettingsPage() {
                                     <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
                                 </Link>
                                 <a
-                                    href="https://potronet-admin.vercel.app"
+                                    href="https://admin.potronet.com"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"

@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
+import { useInView } from '@/hooks/useInView';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,7 @@ function timeAgo(dateStr: string): string {
     return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
 }
 
-export function PublicationCard({
+function PublicationCardInner({
     publication,
     currentUserId,
     hideAuthor,
@@ -175,13 +176,6 @@ export function PublicationCard({
         : publication.image_url ? [{ type: 'image' as const, url: publication.image_url }] : [];
     const touchStartX = useRef(0);
 
-    // Share modal
-    const [showShare, setShowShare] = useState(false);
-    const [shareSearch, setShareSearch] = useState('');
-    const [allFriends, setAllFriends] = useState<{ id: string; full_name: string; avatar_url: string }[]>([]);
-    const [friendsLoading, setFriendsLoading] = useState(false);
-    const [shareSent, setShareSent] = useState<Set<string>>(new Set());
-
     const loadComments = async () => {
         if (!session?.access_token) return;
         setCommentsLoading(true);
@@ -193,10 +187,20 @@ export function PublicationCard({
         } catch { /* silent */ } finally { setCommentsLoading(false); }
     };
 
+    // Lazy-load comments for preview: only fire when the card is actually
+    // scrolled into (or near) the viewport. Avoids N simultaneous requests
+    // on long feeds. Trigger once — don't re-fetch if user scrolls back.
+    const [cardRef, cardInView] = useInView<HTMLElement>({ rootMargin: '200px', once: true });
+    useEffect(() => {
+        if (cardInView && localCommentsCount > 0 && comments.length === 0 && !commentsLoading) {
+            loadComments();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cardInView, localCommentsCount]);
+
     const handleOpenComments = () => {
         if (comments.length === 0) loadComments();
         setShowComments(true);
-        setShowShare(false);
     };
 
     const handleSubmitComment = async () => {
@@ -213,44 +217,8 @@ export function PublicationCard({
         } catch { /* silent */ } finally { setCommentSending(false); }
     };
 
-    const loadFriends = async () => {
-        if (!session?.access_token || allFriends.length > 0) return;
-        setFriendsLoading(true);
-        try {
-            const data = await api<{ users: { id: string; full_name: string; avatar_url: string }[] }>(
-                '/follows?type=friends', { token: session.access_token }
-            );
-            setAllFriends(data.users);
-        } catch { /* silent */ } finally { setFriendsLoading(false); }
-    };
-
-    const handleShareTo = async (userId: string) => {
-        if (!session?.access_token) return;
-        try {
-            const firstMedia = mediaItems.length > 0 ? `\n${mediaItems[0].url}` : '';
-            const shareContent = `📣 Publicación de ${author.full_name}:\n\n"${publication.content.slice(0, 200)}..."${firstMedia}`;
-            await api('/messages', {
-                method: 'POST', token: session.access_token,
-                body: JSON.stringify({ receiver_id: userId, content: shareContent }),
-            });
-            setShareSent(prev => new Set(prev).add(userId));
-        } catch { /* silent */ }
-    };
-
-    const handleOpenShare = () => {
-        setShowShare(true);
-        setShowComments(false);
-        setShareSearch('');
-        setShareSent(new Set());
-        loadFriends();
-    };
-
-    const filteredFriends = shareSearch.trim()
-        ? allFriends.filter(u => u.full_name.toLowerCase().includes(shareSearch.toLowerCase()))
-        : allFriends;
-
     return (
-        <article className="border-b border-border/40 bg-background pt-4 pb-3 flex flex-col gap-2 md:rounded-xl md:border md:p-4 md:shadow-sm md:mb-4">
+        <article ref={cardRef} className="border-b border-border/40 bg-background pt-4 pb-3 flex flex-col gap-2 md:rounded-xl md:border md:p-4 md:shadow-sm md:mb-4">
             {/* Header */}
             {hideAuthor ? (
                 <div className="flex items-center justify-between px-4 md:px-0">
@@ -414,17 +382,58 @@ export function PublicationCard({
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full active:scale-95 text-muted-foreground hover:text-foreground" onClick={handleOpenComments}>
                         <MessageCircleIcon className="h-5 w-5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full active:scale-95 text-muted-foreground hover:text-foreground" onClick={handleOpenShare}>
-                        <SendIcon className="h-5 w-5" />
-                    </Button>
                 </div>
-                {likesCount > 0 && (
-                    <p className="text-[13px] font-semibold mt-0.5">{likesCount} {likesCount === 1 ? 'like' : 'likes'}</p>
+                {(likesCount > 0 || localCommentsCount > 0) && (
+                    <div className="flex items-center gap-3 text-[13px] mt-0.5">
+                        {likesCount > 0 && (
+                            <span className="font-semibold">{likesCount} {likesCount === 1 ? 'like' : 'likes'}</span>
+                        )}
+                        {localCommentsCount > 0 && (
+                            <button
+                                onClick={handleOpenComments}
+                                className="font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                {localCommentsCount} {localCommentsCount === 1 ? 'comentario' : 'comentarios'}
+                            </button>
+                        )}
+                    </div>
                 )}
-                {localCommentsCount > 0 && (
-                    <button onClick={handleOpenComments} className="text-[12px] text-muted-foreground hover:underline">
-                        Ver {localCommentsCount} {localCommentsCount === 1 ? 'comentario' : 'comentarios'}
-                    </button>
+                {localCommentsCount > 0 && comments.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                        {comments.slice(-2).map(c => (
+                            <div key={c.id} className="flex gap-2 items-start">
+                                <Link
+                                    to={`/profile/${c.author.id}`}
+                                    className="shrink-0 mt-0.5"
+                                >
+                                    <div className="h-6 w-6 rounded-full bg-primary/10 overflow-hidden flex items-center justify-center">
+                                        {c.author.avatar_url
+                                            ? <img src={c.author.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover" />
+                                            : <UserIcon className="h-3 w-3 text-primary" />}
+                                    </div>
+                                </Link>
+                                <div className="min-w-0 flex-1">
+                                    <Link
+                                        to={`/profile/${c.author.id}`}
+                                        className="text-[12px] font-semibold text-foreground hover:underline"
+                                    >
+                                        {c.author.full_name}
+                                    </Link>
+                                    <p className="text-[13px] leading-snug text-muted-foreground break-words">
+                                        {c.content}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                        {localCommentsCount > 2 && (
+                            <button
+                                onClick={handleOpenComments}
+                                className="text-[12px] font-medium text-primary hover:underline ml-8"
+                            >
+                                Ver los {localCommentsCount} comentarios
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
 
@@ -567,74 +576,6 @@ export function PublicationCard({
                 </div>
             )}
 
-            {/* Share modal */}
-            {showShare && (
-                <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center" onClick={() => setShowShare(false)}>
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                    <div
-                        className="relative w-full md:max-w-sm md:rounded-2xl rounded-t-2xl bg-background border border-border overflow-hidden animate-in slide-in-from-bottom duration-200"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {/* Handle */}
-                        <div className="flex justify-center pt-3 pb-1 md:hidden">
-                            <div className="w-10 h-1 rounded-full bg-border" />
-                        </div>
-
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                            <h3 className="text-sm font-bold">Enviar a</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setShowShare(false)}>
-                                <XIcon className="h-4 w-4" />
-                            </Button>
-                        </div>
-
-                        {/* Search */}
-                        <div className="px-4 py-2">
-                            <Input
-                                placeholder="Buscar amigo..."
-                                value={shareSearch}
-                                onChange={e => setShareSearch(e.target.value)}
-                                className="h-9 text-sm rounded-xl bg-muted/50"
-                                autoFocus
-                            />
-                        </div>
-
-                        {/* Friends list */}
-                        <div className="max-h-[50vh] overflow-y-auto px-2 pb-4">
-                            {friendsLoading ? (
-                                <div className="flex justify-center py-8">
-                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                </div>
-                            ) : filteredFriends.length === 0 ? (
-                                <p className="text-xs text-muted-foreground text-center py-8">
-                                    {allFriends.length === 0 ? 'No tienes amigos aún.' : 'No se encontraron resultados.'}
-                                </p>
-                            ) : (
-                                <div className="grid grid-cols-4 gap-1 pt-1">
-                                    {filteredFriends.map(u => (
-                                        <button
-                                            key={u.id}
-                                            onClick={() => !shareSent.has(u.id) && handleShareTo(u.id)}
-                                            disabled={shareSent.has(u.id)}
-                                            className="flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all active:scale-95 hover:bg-muted/50"
-                                        >
-                                            <div className={`h-14 w-14 rounded-full overflow-hidden flex items-center justify-center ${shareSent.has(u.id) ? 'ring-2 ring-emerald-500' : 'bg-primary/10'}`}>
-                                                {u.avatar_url
-                                                    ? <img src={u.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover" />
-                                                    : <UserIcon className="h-6 w-6 text-primary" />}
-                                            </div>
-                                            <span className="text-[11px] font-medium text-center leading-tight line-clamp-2 max-w-[70px]">
-                                                {shareSent.has(u.id) ? 'Enviado' : u.full_name.split(' ')[0]}
-                                            </span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Options Action Sheet */}
             {showOptions && (
                 <div className="fixed inset-0 z-[100] flex items-end justify-center" onClick={() => setShowOptions(false)}>
@@ -740,3 +681,20 @@ export function PublicationCard({
         </article>
     );
 }
+
+// Memoize so that unrelated feed re-renders (e.g. another card's state) don't
+// re-render every card. Fine-grained comparator: id + counters + user_liked.
+export const PublicationCard = memo(PublicationCardInner, (prev, next) => {
+    const a = prev.publication;
+    const b = next.publication;
+    return (
+        a.id === b.id &&
+        a.likes_count === b.likes_count &&
+        a.comments_count === b.comments_count &&
+        a.user_liked === b.user_liked &&
+        prev.currentUserId === next.currentUserId &&
+        prev.hideAuthor === next.hideAuthor &&
+        prev.onLike === next.onLike &&
+        prev.onDelete === next.onDelete
+    );
+});
