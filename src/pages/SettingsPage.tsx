@@ -4,6 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRole } from '@/hooks/useRole';
 import { api } from '@/lib/api';
+import {
+    isPushSupported,
+    getPushPermission,
+    getCurrentSubscription,
+    subscribeToPush,
+    unsubscribeFromPush,
+} from '@/lib/push';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -12,13 +19,44 @@ import {
     UserIcon, BellIcon, ShieldIcon, PaletteIcon, InfoIcon,
     MailIcon, SunIcon, MoonIcon, MonitorIcon, ChevronRightIcon,
     ShieldAlertIcon, ExternalLinkIcon,
+    HeartIcon, MessageCircleIcon, UserPlusIcon, GraduationCapIcon,
+    MegaphoneIcon, FlagIcon,
 } from 'lucide-react';
 
 interface UserSettings {
     notification_email: boolean;
     dm_privacy: 'everyone' | 'followers' | 'friends';
     theme: 'light' | 'dark' | 'system';
+    push_enabled: boolean;
+    push_follows: boolean;
+    push_messages: boolean;
+    push_likes: boolean;
+    push_comments: boolean;
+    push_tutoring: boolean;
+    push_system: boolean;
+    push_moderation: boolean;
 }
+
+type PushPrefKey = Extract<
+    keyof UserSettings,
+    'push_follows' | 'push_messages' | 'push_likes' | 'push_comments' |
+    'push_tutoring' | 'push_system' | 'push_moderation'
+>;
+
+const PUSH_PREFS: ReadonlyArray<{
+    key: PushPrefKey;
+    label: string;
+    description: string;
+    icon: typeof HeartIcon;
+}> = [
+    { key: 'push_follows', label: 'Seguidores y amistades', description: 'Nuevos seguidores y solicitudes', icon: UserPlusIcon },
+    { key: 'push_messages', label: 'Mensajes', description: 'Mensajes directos', icon: MessageCircleIcon },
+    { key: 'push_likes', label: 'Me gusta', description: 'Likes en tus publicaciones', icon: HeartIcon },
+    { key: 'push_comments', label: 'Comentarios', description: 'Comentarios en tus publicaciones', icon: MessageCircleIcon },
+    { key: 'push_tutoring', label: 'Tutorías', description: 'Solicitudes y cambios de sesión', icon: GraduationCapIcon },
+    { key: 'push_system', label: 'Sistema', description: 'Anuncios de PotroNET', icon: MegaphoneIcon },
+    { key: 'push_moderation', label: 'Moderación', description: 'Advertencias y acciones sobre tu contenido', icon: FlagIcon },
+];
 
 const DM_LABELS: Record<string, string> = {
     everyone: 'Todos',
@@ -32,12 +70,35 @@ const THEME_OPTIONS = [
     { value: 'system', label: 'Sistema', icon: MonitorIcon },
 ] as const;
 
+function Toggle({ active, onClick, disabled = false }: { active: boolean; onClick: () => void; disabled?: boolean }) {
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                active ? 'bg-primary' : 'bg-muted'
+            }`}
+        >
+            <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ${
+                    active ? 'translate-x-5' : 'translate-x-0'
+                }`}
+            />
+        </button>
+    );
+}
+
 export function SettingsPage() {
     const { session, profile } = useAuth();
     const { toggleTheme, theme: currentTheme } = useTheme();
     const { isModerator, isSudo } = useRole();
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [loading, setLoading] = useState(true);
+    const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
+    const [pushSubscribed, setPushSubscribed] = useState(false);
+    const [pushBusy, setPushBusy] = useState(false);
+    const [pushError, setPushError] = useState<string | null>(null);
+    const pushSupported = isPushSupported();
 
     const token = session?.access_token;
 
@@ -54,6 +115,12 @@ export function SettingsPage() {
     }, [token]);
 
     useEffect(() => { fetchSettings(); }, [fetchSettings]);
+
+    useEffect(() => {
+        if (!pushSupported) return;
+        setPushPermission(getPushPermission());
+        getCurrentSubscription().then((sub) => setPushSubscribed(!!sub));
+    }, [pushSupported]);
 
     const patchSettings = useCallback(async (updates: Partial<UserSettings>) => {
         if (!token || !settings) return;
@@ -76,6 +143,28 @@ export function SettingsPage() {
         const target = value === 'system' ? 'light' : value;
         if (target !== currentTheme) {
             toggleTheme();
+        }
+    };
+
+    const handleTogglePushMaster = async () => {
+        if (!token || pushBusy) return;
+        setPushError(null);
+        setPushBusy(true);
+        try {
+            if (settings?.push_enabled && pushSubscribed) {
+                await unsubscribeFromPush(token);
+                setPushSubscribed(false);
+                await patchSettings({ push_enabled: false });
+            } else {
+                await subscribeToPush(token);
+                setPushSubscribed(true);
+                setPushPermission(getPushPermission());
+                await patchSettings({ push_enabled: true });
+            }
+        } catch (err) {
+            setPushError(err instanceof Error ? err.message : 'Error al activar notificaciones');
+        } finally {
+            setPushBusy(false);
         }
     };
 
@@ -115,25 +204,78 @@ export function SettingsPage() {
                     <BellIcon className="h-5 w-5 text-primary" />
                     <h2 className="text-sm font-semibold">Notificaciones</h2>
                 </div>
-                <div className="px-4 py-3">
-                    <div className="flex items-center justify-between">
+
+                <div className="divide-y divide-border/30">
+                    {/* Email */}
+                    <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex items-center gap-3">
                             <MailIcon className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm">Notificaciones por email</span>
                         </div>
-                        <button
+                        <Toggle
+                            active={!!settings?.notification_email}
                             onClick={() => patchSettings({ notification_email: !settings?.notification_email })}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
-                                settings?.notification_email ? 'bg-primary' : 'bg-muted'
-                            }`}
-                        >
-                            <span
-                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ${
-                                    settings?.notification_email ? 'translate-x-5' : 'translate-x-0'
-                                }`}
-                            />
-                        </button>
+                        />
                     </div>
+
+                    {/* Push master */}
+                    {pushSupported ? (
+                        <div className="px-4 py-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <BellIcon className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm">Notificaciones push</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {pushPermission === 'denied'
+                                                ? 'Bloqueadas en el navegador — actívalas en ajustes del sitio'
+                                                : settings?.push_enabled && pushSubscribed
+                                                    ? 'Activadas en este dispositivo'
+                                                    : 'Desactivadas'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Toggle
+                                    active={!!settings?.push_enabled && pushSubscribed}
+                                    disabled={pushBusy || pushPermission === 'denied'}
+                                    onClick={handleTogglePushMaster}
+                                />
+                            </div>
+                            {pushError && <p className="text-xs text-destructive">{pushError}</p>}
+                        </div>
+                    ) : (
+                        <div className="px-4 py-3">
+                            <p className="text-xs text-muted-foreground">
+                                Este navegador no soporta notificaciones push. En iOS instala la app desde el ícono "Compartir → Añadir a inicio".
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Per-type toggles (only visible if push enabled) */}
+                    {pushSupported && settings?.push_enabled && pushSubscribed && (
+                        <div className="px-4 py-3 space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground mb-2">¿Qué quieres recibir?</p>
+                            {PUSH_PREFS.map((pref) => {
+                                const Icon = pref.icon;
+                                const value = !!settings?.[pref.key];
+                                return (
+                                    <div key={pref.key} className="flex items-center justify-between py-2">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                            <div className="min-w-0">
+                                                <p className="text-sm truncate">{pref.label}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{pref.description}</p>
+                                            </div>
+                                        </div>
+                                        <Toggle
+                                            active={value}
+                                            onClick={() => patchSettings({ [pref.key]: !value } as Partial<UserSettings>)}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </section>
 

@@ -79,3 +79,47 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+// Web Push
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { title: 'PotroNET', body: event.data ? event.data.text() : '' };
+  }
+
+  const title = payload.title || 'PotroNET';
+  const options = {
+    body: payload.body || '',
+    icon: payload.icon || '/potronet.png',
+    badge: payload.badge || '/favicon.png',
+    tag: payload.tag || 'potronet',
+    data: { url: payload.url || '/', ...(payload.data || {}) },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of allClients) {
+        if ('focus' in client) {
+          try {
+            await client.focus();
+            if ('navigate' in client) await client.navigate(targetUrl);
+            return;
+          } catch {
+            // fallthrough to openWindow
+          }
+        }
+      }
+      if (clients.openWindow) await clients.openWindow(targetUrl);
+    })()
+  );
+});
