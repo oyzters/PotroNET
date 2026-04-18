@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
 import { ProfileSkeleton, PostSkeleton } from '@/components/ui/Skeleton';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -76,6 +77,7 @@ type WallTab = 'grid' | 'info' | 'horario';
 export function ProfilePage() {
     const { id } = useParams<{ id: string }>();
     const { session, user, refreshProfile } = useAuth();
+    const toast = useToast();
     const { isModerator, isSudo } = useRole();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [careers, setCareers] = useState<Career[]>([]);
@@ -268,6 +270,20 @@ export function ProfilePage() {
                 )
             );
         } catch { /* silent */ }
+    };
+
+    const handleDelete = async (publicationId: string) => {
+        if (!session?.access_token) return;
+        try {
+            await api(`/publications/${publicationId}`, {
+                method: 'DELETE',
+                token: session.access_token,
+            });
+            setPosts(prev => prev.filter(p => p.id !== publicationId));
+            toast.success('Publicación eliminada');
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'No se pudo eliminar la publicación');
+        }
     };
 
     // Subir imagen de avatar
@@ -643,6 +659,7 @@ export function ProfilePage() {
                                     currentUserId={user?.id}
                                     hideAuthor
                                     onLike={handleLike}
+                                    onDelete={handleDelete}
                                 />
                             ))}
                         </div>

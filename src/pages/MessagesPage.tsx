@@ -60,8 +60,8 @@ export function MessagesPage() {
     const [chatUser, setChatUser] = useState<ConversationUser | null>(null);
     const [newMessage, setNewMessage] = useState('');
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [showMediaInput, setShowMediaInput] = useState(false);
-    const [mediaUrl, setMediaUrl] = useState('');
+    const [uploadingMedia, setUploadingMedia] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [loading, setLoading] = useState(true);
     const [messagesLoading, setMessagesLoading] = useState(false);
@@ -289,33 +289,99 @@ export function MessagesPage() {
         return <span className="text-sm leading-relaxed break-words">{content}</span>;
     };
 
-    const handleSendMedia = async () => {
-        if (!mediaUrl.trim()) return;
-        const url = mediaUrl.trim();
-        setMediaUrl('');
-        setShowMediaInput(false);
-        setNewMessage(url);
-        // Trigger send with the URL as message content
+    const MEDIA_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'];
+    const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+    const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+    const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
+    const handlePickMedia = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        // Reset so picking the same file again re-fires change
+        if (e.target) e.target.value = '';
+        if (!file) return;
         if (!session?.access_token || !activeUserId || !user?.id) return;
-        const optimisticMsg: Message = {
-            id: crypto.randomUUID(),
-            sender_id: user.id,
-            receiver_id: activeUserId,
-            content: url,
-            is_read: false,
-            created_at: new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, optimisticMsg]);
-        setNewMessage('');
-        setSending(true);
+
+        if (!MEDIA_MIME.includes(file.type)) {
+            return;
+        }
+        const isVideo = file.type.startsWith('video/');
+        const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+        if (file.size > maxBytes) {
+            return;
+        }
+
+        setUploadingMedia(true);
         try {
+            // Compress images client-side (videos upload as-is)
+            let payload: Blob = file;
+            let contentType = file.type;
+            let uploadSize = file.size;
+            let uploadName = file.name;
+
+            if (!isVideo) {
+                try {
+                    const mod = await import('browser-image-compression');
+                    const compressed = await mod.default(file, {
+                        maxSizeMB: 1,
+                        maxWidthOrHeight: 1920,
+                        initialQuality: 0.8,
+                        useWebWorker: true,
+                    });
+                    payload = compressed;
+                    contentType = compressed.type || file.type;
+                    uploadSize = compressed.size;
+                    uploadName = compressed.name || file.name;
+                } catch {
+                    // fall back to original
+                }
+            }
+
+            // 1) Get presigned URL from API
+            const signedRes = await fetch(`${API_BASE}/uploads/signed-url`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ fileName: uploadName, fileType: contentType, fileSize: uploadSize }),
+            });
+            const signedData = await signedRes.json();
+            if (!signedRes.ok) throw new Error(signedData.error || 'Signed URL failed');
+
+            // 2) PUT directly to R2
+            const putRes = await fetch(signedData.signedUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': contentType },
+                body: payload,
+            });
+            if (!putRes.ok) throw new Error(`Upload failed (${putRes.status})`);
+
+            // 3) Send message with public URL as content
+            const url = signedData.publicUrl as string;
+            const optimisticMsg: Message = {
+                id: crypto.randomUUID(),
+                sender_id: user.id,
+                receiver_id: activeUserId,
+                content: url,
+                is_read: false,
+                created_at: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, optimisticMsg]);
+
             await api('/messages', {
                 method: 'POST', token: session.access_token,
                 body: JSON.stringify({ receiver_id: activeUserId, content: url }),
             });
         } catch {
-            setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
-        } finally { setSending(false); }
+            // Remove optimistic if it was added; otherwise noop.
+            setMessages(prev => prev.filter(m => m.content !== '__upload_failed_placeholder__'));
+        } finally {
+            setUploadingMedia(false);
+        }
     };
 
     const fetchFriends = useCallback(async () => {
@@ -428,8 +494,8 @@ export function MessagesPage() {
                                         onTouchMove={(e) => handleTouchMove(e, msg.id)}
                                         onTouchEnd={() => handleTouchEnd(msg.id, msg)}
                                     >
-                                        <div 
-                                            className={`max-w-[85%] rounded-2xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${msg.sender_id === user?.id ? 'bg-primary/95 text-primary-foreground rounded-tr-md' : 'bg-white dark:bg-card text-foreground rounded-tl-md border border-border/50'}`}
+                                        <div
+                                            className={`max-w-[85%] rounded-2xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${msg.sender_id === user?.id ? 'bg-primary/95 text-white rounded-tr-md' : 'bg-white dark:bg-card text-foreground rounded-tl-md border border-border/50'}`}
                                             style={{ transform: swipeStates[msg.id] ? `translateX(${swipeStates[msg.id]}px)` : 'translateX(0)' }}
                                         >
                                             {repliedMsg && (
@@ -441,7 +507,7 @@ export function MessagesPage() {
 
                                             <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5 pt-0.5">
                                                 {renderMessageContent(msg.content)}
-                                                <div className={`flex ml-auto pl-1 items-center gap-1 text-[10px] pb-0.5 ${msg.sender_id === user?.id ? 'text-primary-foreground/75' : 'text-muted-foreground/60'}`}>
+                                                <div className={`flex ml-auto pl-1 items-center gap-1 text-[10px] pb-0.5 ${msg.sender_id === user?.id ? 'text-white/75' : 'text-muted-foreground/60'}`}>
                                                     <span>{new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
                                                     {msg.sender_id === user?.id && (
                                                         msg.is_read ? <CheckCheckIcon className="h-3 w-3 text-sky-300" /> : <CheckIcon className="h-3 w-3" />
@@ -479,24 +545,13 @@ export function MessagesPage() {
                         </div>
                     )}
 
-                    {showMediaInput && (
-                        <div className="max-w-4xl mx-auto w-full mb-2 flex items-center gap-2 rounded-xl bg-muted/50 p-2 border border-primary/20">
-                            <Input
-                                placeholder="Pega la URL de imagen o video..."
-                                value={mediaUrl}
-                                onChange={e => setMediaUrl(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleSendMedia()}
-                                className="h-8 text-sm flex-1 rounded-lg"
-                                autoFocus
-                            />
-                            <Button size="sm" className="h-8 px-3 rounded-lg" onClick={handleSendMedia} disabled={!mediaUrl.trim()}>
-                                <SendIcon className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full shrink-0" onClick={() => { setShowMediaInput(false); setMediaUrl(''); }}>
-                                <XIcon className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    )}
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
+                        className="hidden"
+                        onChange={handleFileSelected}
+                    />
 
                     {replyingTo && (
                         <div className="max-w-4xl mx-auto w-full mb-2 flex items-center justify-between rounded-xl bg-muted/50 p-2 text-[13px] border-l-4 border-primary">
@@ -518,10 +573,14 @@ export function MessagesPage() {
                                 <SmileIcon className="h-[22px] w-[22px]" />
                             </button>
                             <button
-                                className="p-3 mb-0 text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
-                                onClick={() => { setShowMediaInput(!showMediaInput); setShowEmojiPicker(false); }}
+                                className="p-3 mb-0 text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center disabled:opacity-50"
+                                onClick={handlePickMedia}
+                                disabled={uploadingMedia}
+                                type="button"
                             >
-                                <ImageIcon className="h-[22px] w-[22px]" />
+                                {uploadingMedia
+                                    ? <LoaderIcon className="h-[22px] w-[22px] animate-spin" />
+                                    : <ImageIcon className="h-[22px] w-[22px]" />}
                             </button>
                             <Input
                                 placeholder="Escribe un mensaje"
@@ -987,8 +1046,8 @@ export function MessagesPage() {
                                                 onTouchEnd={() => handleTouchEnd(msg.id, msg)}
                                             >
                                                 <div className={`max-w-[75%] rounded-2xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${
-                                                    msg.sender_id === user?.id 
-                                                        ? 'bg-primary text-primary-foreground rounded-tr-md' 
+                                                    msg.sender_id === user?.id
+                                                        ? 'bg-primary text-white rounded-tr-md'
                                                         : 'bg-muted text-foreground rounded-tl-md border border-border/50'
                                                 }`} style={{ transform: swipeStates[msg.id] ? `translateX(${swipeStates[msg.id]}px)` : 'translateX(0)' }}>
                                                     {repliedMsg && (
@@ -1000,7 +1059,7 @@ export function MessagesPage() {
 
                                                     <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5 pt-0.5">
                                                         {renderMessageContentDesktop(msg.content)}
-                                                        <div className={`flex ml-auto pl-1 items-center gap-1 text-xs pb-0.5 ${msg.sender_id === user?.id ? 'text-primary-foreground/75' : 'text-muted-foreground/60'}`}>
+                                                        <div className={`flex ml-auto pl-1 items-center gap-1 text-xs pb-0.5 ${msg.sender_id === user?.id ? 'text-white/75' : 'text-muted-foreground/60'}`}>
                                                             <span>{new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
                                                             {msg.sender_id === user?.id && (
                                                                 msg.is_read ? <CheckCheckIcon className="h-3 w-3 text-sky-300" /> : <CheckIcon className="h-3 w-3" />
@@ -1038,24 +1097,14 @@ export function MessagesPage() {
                                 </div>
                             )}
 
-                            {showMediaInput && (
-                                <div className="mb-2 flex items-center gap-2 rounded-xl bg-muted/50 p-2 border border-primary/20">
-                                    <Input
-                                        placeholder="Pega la URL de imagen o video..."
-                                        value={mediaUrl}
-                                        onChange={e => setMediaUrl(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && handleSendMedia()}
-                                        className="h-8 text-sm flex-1 rounded-lg"
-                                        autoFocus
-                                    />
-                                    <Button size="sm" className="h-8 px-3 rounded-lg" onClick={handleSendMedia} disabled={!mediaUrl.trim()}>
-                                        <SendIcon className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full shrink-0" onClick={() => { setShowMediaInput(false); setMediaUrl(''); }}>
-                                        <XIcon className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            )}
+
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
+                                className="hidden"
+                                onChange={handleFileSelected}
+                            />
 
                             {replyingTo && (
                                 <div className="mb-2 flex items-center justify-between rounded-xl bg-muted/50 p-2 text-xs border-l-4 border-primary">
@@ -1078,10 +1127,14 @@ export function MessagesPage() {
                                         <SmileIcon className="h-5 w-5" />
                                     </button>
                                     <button
-                                        className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                                        onClick={() => { setShowMediaInput(!showMediaInput); setShowEmojiPicker(false); }}
+                                        className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 disabled:opacity-50"
+                                        onClick={handlePickMedia}
+                                        disabled={uploadingMedia}
+                                        type="button"
                                     >
-                                        <ImageIcon className="h-5 w-5" />
+                                        {uploadingMedia
+                                            ? <LoaderIcon className="h-5 w-5 animate-spin" />
+                                            : <ImageIcon className="h-5 w-5" />}
                                     </button>
                                     <Input
                                         placeholder="Escribe un mensaje"

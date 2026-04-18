@@ -111,7 +111,6 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
                                 }
                                 style={({ isActive }) => isActive ? {
                                     background: 'oklch(0.68 0.15 237 / 0.12)',
-                                    boxShadow: 'inset 3px 0 0 oklch(0.68 0.15 237)',
                                 } : {}}
                             >
                                 <item.icon className="h-5 w-5 shrink-0" />
