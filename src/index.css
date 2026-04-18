@@ -140,13 +140,23 @@
   * {
     @apply border-border outline-ring/50;
     }
-  body {
-    @apply font-sans bg-background text-foreground overscroll-none;
+  html {
+    @apply font-sans bg-background;
+    /* iOS fallback: -webkit-fill-available works with collapsing URL bar */
+    min-height: 100%;
+    min-height: -webkit-fill-available;
+    /* Prevent overscroll bounce on the page itself (not content scroll) */
     overscroll-behavior-y: none;
     }
-  html {
-    @apply font-sans overscroll-none;
+  body {
+    @apply font-sans bg-background text-foreground;
+    min-height: 100vh;
+    min-height: 100dvh;
+    /* Body is the main scroll container on mobile — no nested scroll.
+       Block overscroll bounce only on Y to avoid weird iOS Safari issues. */
     overscroll-behavior-y: none;
+    /* Smooth momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
     }
 }
 
@@ -281,6 +291,11 @@
 .h-dvh { height: 100vh; height: 100dvh; }
 .min-h-dvh { min-height: 100vh; min-height: 100dvh; }
 .h-dvh-minus-nav { height: calc(100vh - 4rem); height: calc(100dvh - 4rem); }
+
+/* Stable viewport height — doesn't shift when iOS URL bar appears/disappears.
+   Use this for full-screen pages like the chat where you don't want jitter. */
+.h-svh { height: 100vh; height: 100svh; }
+.min-h-svh { min-height: 100vh; min-height: 100svh; }
 
 /* ============================================================
    TOUCH POLISH

@@ -614,7 +614,7 @@ export function MessagesPage() {
         const primaryConvs = filteredConversations.filter(c => !c.is_request);
         const requestConvs = filteredConversations.filter(c => c.is_request);
         return (
-        <div className="pb-20 h-dvh flex flex-col pt-4 bg-background relative z-10">
+        <div className="pb-20 h-svh flex flex-col bg-background relative z-10" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
                 <div className="px-4 pb-2 flex justify-between items-center mb-2">
                     <div className="flex items-center gap-3">
                         <Link to="/" className="p-2 rounded-full hover:bg-muted text-primary transition-colors">
@@ -793,7 +793,7 @@ export function MessagesPage() {
 
     // Desktop layout - Always show sidebar + chat area
     return (
-        <div className="h-dvh flex bg-background relative z-10">
+        <div className="h-svh flex bg-background relative z-10">
             {/* Sidebar - User List */}
             <div className="w-80 border-r border-border flex flex-col bg-muted/20">
                 {/* Sidebar Header */}
