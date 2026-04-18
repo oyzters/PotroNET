@@ -17,46 +17,15 @@ import {
 } from '@/components/ui/select';
 import {
     UserIcon, BellIcon, ShieldIcon, PaletteIcon, InfoIcon,
-    MailIcon, SunIcon, MoonIcon, MonitorIcon, ChevronRightIcon,
-    ShieldAlertIcon, ExternalLinkIcon,
-    HeartIcon, MessageCircleIcon, UserPlusIcon, GraduationCapIcon,
-    MegaphoneIcon, FlagIcon,
+    SunIcon, MoonIcon, MonitorIcon, ChevronRightIcon,
+    ShieldAlertIcon, ExternalLinkIcon, SlidersHorizontalIcon,
 } from 'lucide-react';
 
 interface UserSettings {
-    notification_email: boolean;
     dm_privacy: 'everyone' | 'followers' | 'friends';
     theme: 'light' | 'dark' | 'system';
     push_enabled: boolean;
-    push_follows: boolean;
-    push_messages: boolean;
-    push_likes: boolean;
-    push_comments: boolean;
-    push_tutoring: boolean;
-    push_system: boolean;
-    push_moderation: boolean;
 }
-
-type PushPrefKey = Extract<
-    keyof UserSettings,
-    'push_follows' | 'push_messages' | 'push_likes' | 'push_comments' |
-    'push_tutoring' | 'push_system' | 'push_moderation'
->;
-
-const PUSH_PREFS: ReadonlyArray<{
-    key: PushPrefKey;
-    label: string;
-    description: string;
-    icon: typeof HeartIcon;
-}> = [
-    { key: 'push_follows', label: 'Seguidores y amistades', description: 'Nuevos seguidores y solicitudes', icon: UserPlusIcon },
-    { key: 'push_messages', label: 'Mensajes', description: 'Mensajes directos', icon: MessageCircleIcon },
-    { key: 'push_likes', label: 'Me gusta', description: 'Likes en tus publicaciones', icon: HeartIcon },
-    { key: 'push_comments', label: 'Comentarios', description: 'Comentarios en tus publicaciones', icon: MessageCircleIcon },
-    { key: 'push_tutoring', label: 'Tutorías', description: 'Solicitudes y cambios de sesión', icon: GraduationCapIcon },
-    { key: 'push_system', label: 'Sistema', description: 'Anuncios de PotroNET', icon: MegaphoneIcon },
-    { key: 'push_moderation', label: 'Moderación', description: 'Advertencias y acciones sobre tu contenido', icon: FlagIcon },
-];
 
 const DM_LABELS: Record<string, string> = {
     everyone: 'Todos',
@@ -139,7 +108,6 @@ export function SettingsPage() {
 
     const handleThemeChange = (value: string) => {
         patchSettings({ theme: value as UserSettings['theme'] });
-        // Sync with local ThemeContext
         const target = value === 'system' ? 'light' : value;
         if (target !== currentTheme) {
             toggleTheme();
@@ -176,6 +144,8 @@ export function SettingsPage() {
         );
     }
 
+    const masterActive = !!settings?.push_enabled && pushSubscribed;
+
     return (
         <div className="mx-auto max-w-lg space-y-6 pb-24">
             <SectionHeader title="Configuracion" />
@@ -204,39 +174,25 @@ export function SettingsPage() {
                     <BellIcon className="h-5 w-5 text-primary" />
                     <h2 className="text-sm font-semibold">Notificaciones</h2>
                 </div>
-
                 <div className="divide-y divide-border/30">
-                    {/* Email */}
-                    <div className="flex items-center justify-between px-4 py-3">
-                        <div className="flex items-center gap-3">
-                            <MailIcon className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">Notificaciones por email</span>
-                        </div>
-                        <Toggle
-                            active={!!settings?.notification_email}
-                            onClick={() => patchSettings({ notification_email: !settings?.notification_email })}
-                        />
-                    </div>
-
-                    {/* Push master */}
                     {pushSupported ? (
                         <div className="px-4 py-3 space-y-2">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <BellIcon className="h-4 w-4 text-muted-foreground" />
-                                    <div>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <BellIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                    <div className="min-w-0">
                                         <p className="text-sm">Notificaciones push</p>
                                         <p className="text-xs text-muted-foreground">
                                             {pushPermission === 'denied'
-                                                ? 'Bloqueadas en el navegador — actívalas en ajustes del sitio'
-                                                : settings?.push_enabled && pushSubscribed
+                                                ? 'Bloqueadas — actívalas en ajustes del navegador'
+                                                : masterActive
                                                     ? 'Activadas en este dispositivo'
                                                     : 'Desactivadas'}
                                         </p>
                                     </div>
                                 </div>
                                 <Toggle
-                                    active={!!settings?.push_enabled && pushSubscribed}
+                                    active={masterActive}
                                     disabled={pushBusy || pushPermission === 'denied'}
                                     onClick={handleTogglePushMaster}
                                 />
@@ -246,36 +202,21 @@ export function SettingsPage() {
                     ) : (
                         <div className="px-4 py-3">
                             <p className="text-xs text-muted-foreground">
-                                Este navegador no soporta notificaciones push. En iOS instala la app desde el ícono "Compartir → Añadir a inicio".
+                                Este navegador no soporta notificaciones push. En iOS instala la app desde "Compartir → Añadir a inicio".
                             </p>
                         </div>
                     )}
 
-                    {/* Per-type toggles (only visible if push enabled) */}
-                    {pushSupported && settings?.push_enabled && pushSubscribed && (
-                        <div className="px-4 py-3 space-y-1">
-                            <p className="text-xs font-medium text-muted-foreground mb-2">¿Qué quieres recibir?</p>
-                            {PUSH_PREFS.map((pref) => {
-                                const Icon = pref.icon;
-                                const value = !!settings?.[pref.key];
-                                return (
-                                    <div key={pref.key} className="flex items-center justify-between py-2">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                                            <div className="min-w-0">
-                                                <p className="text-sm truncate">{pref.label}</p>
-                                                <p className="text-xs text-muted-foreground truncate">{pref.description}</p>
-                                            </div>
-                                        </div>
-                                        <Toggle
-                                            active={value}
-                                            onClick={() => patchSettings({ [pref.key]: !value } as Partial<UserSettings>)}
-                                        />
-                                    </div>
-                                );
-                            })}
+                    <Link
+                        to="/settings/notifications"
+                        className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <SlidersHorizontalIcon className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">Tipos de notificaciones</span>
                         </div>
-                    )}
+                        <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
+                    </Link>
                 </div>
             </section>
 
