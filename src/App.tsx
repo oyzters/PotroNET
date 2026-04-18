@@ -23,6 +23,7 @@ import { FriendsPage } from '@/pages/FriendsPage';
 import { MessagesPage } from '@/pages/MessagesPage';
 import { NotificationsPage } from '@/pages/NotificationsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { NotificationSettingsPage } from '@/pages/NotificationSettingsPage';
 import { OnboardingPage } from '@/pages/OnboardingPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
@@ -130,6 +131,7 @@ export function App() {
                         <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
                         <Route path="/rankings" element={<ProtectedPage><RankingPage /></ProtectedPage>} />
                         <Route path="/settings" element={<ProtectedPage><SettingsPage /></ProtectedPage>} />
+                        <Route path="/settings/notifications" element={<ProtectedPage><NotificationSettingsPage /></ProtectedPage>} />
                         <Route path="/moderation" element={
                             <ProtectedPage>
                                 <AdminRoute><ModerationPage /></AdminRoute>
