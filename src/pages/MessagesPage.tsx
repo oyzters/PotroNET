@@ -63,7 +63,7 @@ export function MessagesPage() {
     
     // Swipe to reply logic
     const [swipeStates, setSwipeStates] = useState<Record<string, number>>({});
-    const swipeStartRef = useRef<{ id: string, x: number } | null>(null);
+    const swipeStartRef = useRef<{ id: string, x: number, y: number, locked: boolean } | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [chatUser, setChatUser] = useState<ConversationUser | null>(null);
     const [newMessage, setNewMessage] = useState('');
@@ -238,22 +238,29 @@ export function MessagesPage() {
     };
 
     const handleTouchStart = (e: React.TouchEvent, msgId: string) => {
-        swipeStartRef.current = { id: msgId, x: e.touches[0].clientX };
+        swipeStartRef.current = { id: msgId, x: e.touches[0].clientX, y: e.touches[0].clientY, locked: false };
     };
 
     const handleTouchMove = (e: React.TouchEvent, msgId: string) => {
         if (!swipeStartRef.current || swipeStartRef.current.id !== msgId) return;
         const deltaX = e.touches[0].clientX - swipeStartRef.current.x;
-        // Solo swipe a la derecha
-        if (deltaX > 0 && deltaX < 80) {
-            setSwipeStates(prev => ({ ...prev, [msgId]: deltaX }));
+        const deltaY = Math.abs(e.touches[0].clientY - swipeStartRef.current.y);
+        // Si el movimiento vertical supera el horizontal, es scroll — cancelar
+        if (!swipeStartRef.current.locked && deltaY > Math.abs(deltaX)) {
+            swipeStartRef.current = null;
+            return;
+        }
+        // Solo swipe a la derecha con dead zone de 12px
+        if (deltaX > 12 && deltaX < 80) {
+            swipeStartRef.current.locked = true;
+            setSwipeStates(prev => ({ ...prev, [msgId]: deltaX - 12 }));
         }
     };
 
     const handleTouchEnd = (msgId: string, msg: Message) => {
         if (!swipeStartRef.current || swipeStartRef.current.id !== msgId) return;
         const deltaX = swipeStates[msgId] || 0;
-        if (deltaX > 40) {
+        if (deltaX > 55) {
             setReplyingTo(msg);
         }
         setSwipeStates(prev => {
