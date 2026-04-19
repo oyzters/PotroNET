@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
@@ -11,43 +11,31 @@ import { SunIcon, MoonIcon, CheckCircleIcon, ShieldIcon } from 'lucide-react';
 export function ResetPasswordPage() {
     const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
     const [loading, setLoading] = useState(false);
+    const [verifying, setVerifying] = useState(true);
     const [error, setError] = useState('');
     const [done, setDone] = useState(false);
-    const [sessionReady, setSessionReady] = useState(false);
     const [sessionError, setSessionError] = useState('');
 
     useEffect(() => {
-        // Supabase recovery links redirect with tokens in the URL hash
-        const hash = window.location.hash;
-        if (!hash) {
+        const token = searchParams.get('token');
+        if (!token) {
             setSessionError('Enlace inválido o expirado. Solicita uno nuevo.');
+            setVerifying(false);
             return;
         }
 
-        const params = new URLSearchParams(hash.slice(1));
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        const type = params.get('type');
-
-        if (type !== 'recovery' || !accessToken || !refreshToken) {
-            setSessionError('Enlace inválido o expirado. Solicita uno nuevo.');
-            return;
-        }
-
-        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        supabase.auth.verifyOtp({ token_hash: token, type: 'recovery' })
             .then(({ error }) => {
                 if (error) {
                     setSessionError('El enlace expiró o ya fue utilizado. Solicita uno nuevo.');
-                } else {
-                    setSessionReady(true);
-                    // Clean hash from URL
-                    window.history.replaceState(null, '', window.location.pathname);
                 }
-            });
-    }, []);
+            })
+            .finally(() => setVerifying(false));
+    }, [searchParams]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -97,7 +85,11 @@ export function ResetPasswordPage() {
                         <CardDescription>Elige una contraseña segura para tu cuenta</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {sessionError ? (
+                        {verifying ? (
+                            <div className="flex justify-center py-8">
+                                <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                            </div>
+                        ) : sessionError ? (
                             <div className="flex flex-col items-center gap-4 py-4 text-center">
                                 <p className="text-sm text-destructive">{sessionError}</p>
                                 <Link to="/forgot-password">
@@ -114,10 +106,6 @@ export function ResetPasswordPage() {
                                     <p className="mt-1 text-sm text-muted-foreground">Ya puedes iniciar sesión con tu nueva contraseña.</p>
                                 </div>
                                 <Button onClick={() => navigate('/login')}>Iniciar Sesión</Button>
-                            </div>
-                        ) : !sessionReady ? (
-                            <div className="flex justify-center py-8">
-                                <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                             </div>
                         ) : (
                             <form onSubmit={handleSubmit}>

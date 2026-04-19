@@ -197,9 +197,8 @@ export function SudoToolsPage() {
                     <button
                         key={key}
                         onClick={() => setTab(key)}
-                        className={`flex items-center gap-1.5 flex-1 justify-center rounded-lg py-2 text-xs font-medium transition-all whitespace-nowrap ${
-                            tab === key ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                        }`}
+                        className={`flex items-center gap-1.5 flex-1 justify-center rounded-lg py-2 text-xs font-medium transition-all whitespace-nowrap ${tab === key ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                            }`}
                     >
                         <Icon className="h-3.5 w-3.5" />
                         {label}
@@ -283,11 +282,10 @@ export function SudoToolsPage() {
                                                             key={role}
                                                             disabled={u.role === role || actionLoading}
                                                             onClick={() => handleUserAction(u.id, 'role', role)}
-                                                            className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-all disabled:opacity-50 ${
-                                                                u.role === role
+                                                            className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-all disabled:opacity-50 ${u.role === role
                                                                     ? 'border-primary bg-primary/10 text-primary'
                                                                     : 'border-border hover:border-primary/40'
-                                                            }`}
+                                                                }`}
                                                         >
                                                             {role}
                                                         </button>
@@ -406,17 +404,15 @@ export function SudoToolsPage() {
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setNotifTarget('global')}
-                                className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
-                                    notifTarget === 'global' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted/30'
-                                }`}
+                                className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${notifTarget === 'global' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted/30'
+                                    }`}
                             >
                                 <UsersIcon className="h-4 w-4" /> Global
                             </button>
                             <button
                                 onClick={() => setNotifTarget('user')}
-                                className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
-                                    notifTarget === 'user' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted/30'
-                                }`}
+                                className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${notifTarget === 'user' ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted/30'
+                                    }`}
                             >
                                 <UserIcon className="h-4 w-4" /> Usuario
                             </button>

@@ -46,17 +46,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 token: accessToken,
             });
             setProfile(data.user);
-        } catch {
+        } catch (err) {
+            console.error('[AuthContext] fetchProfile failed:', err);
             setProfile(null);
         }
     };
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.access_token) {
-                fetchProfile(session.access_token);
+                await fetchProfile(session.access_token);
             }
             setLoading(false);
         });
