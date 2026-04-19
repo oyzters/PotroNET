@@ -29,7 +29,7 @@ export type FeedItem =
     | { kind: 'widget'; name: 'newUsers' | 'ranking' | 'professors' | 'tutoring' | 'streak' };
 
 // Widget injection: after publication at these indices
-export const WIDGET_AT: Record<number, FeedItem['name']> = {
+export const WIDGET_AT: Record<number, Extract<FeedItem, { kind: 'widget' }>['name']> = {
     1: 'newUsers',
     2: 'ranking',
     5: 'professors',
