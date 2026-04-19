@@ -17,6 +17,7 @@ import {
     MoreHorizontalIcon, XIcon, ClipboardIcon, FlagIcon, ChevronLeftIcon, ChevronRightIcon,
     ShieldIcon, ShieldAlertIcon, AlertTriangleIcon,
 } from 'lucide-react';
+import { FeedVideo } from './FeedVideo';
 
 interface Author {
     id: string;
@@ -299,12 +300,9 @@ function PublicationCardInner({
                                             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                         />
                                     ) : (
-                                        <video
+                                        <FeedVideo
                                             src={item.url}
-                                            controls
-                                            preload="metadata"
-                                            playsInline
-                                            className="w-full max-h-[450px] bg-black"
+                                            className="w-full"
                                             onError={e => { (e.target as HTMLVideoElement).style.display = 'none'; }}
                                         />
                                     )}

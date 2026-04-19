@@ -38,6 +38,14 @@ interface Conversation { user: ConversationUser; lastMessage: LastMessage | null
 interface Message { id: string; sender_id: string; receiver_id: string; content: string; is_read: boolean; created_at: string; reply_to?: string }
 interface Friend { id: string; full_name: string; avatar_url: string; email: string }
 
+const MEDIA_PREVIEW_RE = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|mp4|webm)(\?.*)?$/i;
+const VIDEO_PREVIEW_RE = /\.(mp4|webm)(\?.*)?$/i;
+function formatMsgPreview(content: string | null | undefined): string {
+    if (!content) return '';
+    if (MEDIA_PREVIEW_RE.test(content)) return VIDEO_PREVIEW_RE.test(content) ? '🎥 Video' : '📷 Foto';
+    return content;
+}
+
 export function MessagesPage() {
     const { userId } = useParams<{ userId: string }>();
     const navigate = useNavigate();
@@ -63,6 +71,7 @@ export function MessagesPage() {
     const [uploadingMedia, setUploadingMedia] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+    const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [messagesLoading, setMessagesLoading] = useState(false);
     const [sending, setSending] = useState(false);
@@ -87,7 +96,9 @@ export function MessagesPage() {
         setLoading(true);
         try {
             const data = await api<{ conversations: Conversation[] }>('/messages', { token: session.access_token });
-            setConversations(data.conversations);
+            setConversations(data.conversations.map(c =>
+                c.user.id === activeUserIdRef.current ? { ...c, unread: 0 } : c
+            ));
         } catch { /* silent */ } finally { setLoading(false); }
     }, [session?.access_token]);
 
@@ -271,27 +282,6 @@ export function MessagesPage() {
         bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
     };
 
-    const renderMessageContent = (content: string) => {
-        if (mediaUrlPattern.test(content)) {
-            const isVideo = /\.(mp4|webm)(\?.*)?$/i.test(content);
-            if (isVideo) {
-                return <video src={content} controls playsInline preload="metadata" onLoadedMetadata={handleMediaLoaded} className="max-w-full rounded-lg max-h-[300px]" />;
-            }
-            return <img src={content} alt="" onLoad={handleMediaLoaded} className="max-w-full rounded-lg max-h-[300px] object-cover" />;
-        }
-        return <span className="text-[15px] leading-relaxed min-w-0 [overflow-wrap:anywhere]">{content}</span>;
-    };
-
-    const renderMessageContentDesktop = (content: string) => {
-        if (mediaUrlPattern.test(content)) {
-            const isVideo = /\.(mp4|webm)(\?.*)?$/i.test(content);
-            if (isVideo) {
-                return <video src={content} controls playsInline preload="metadata" onLoadedMetadata={handleMediaLoaded} className="max-w-full rounded-lg max-h-[300px]" />;
-            }
-            return <img src={content} alt="" onLoad={handleMediaLoaded} className="max-w-full rounded-lg max-h-[300px] object-cover" />;
-        }
-        return <span className="text-sm leading-relaxed min-w-0 [overflow-wrap:anywhere]">{content}</span>;
-    };
 
     const MEDIA_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'];
     const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -438,7 +428,7 @@ export function MessagesPage() {
         return (
             <div className="fixed inset-x-0 top-0 bottom-0 z-[100] flex flex-col bg-background">
                 {/* Header */}
-                <div className="flex items-center justify-between bg-white dark:bg-card px-3 py-2 border-b border-border shadow-sm h-16 shrink-0 pt-4">
+                <div className="flex items-center justify-between bg-white dark:bg-card px-3 pb-2 border-b border-border shadow-sm shrink-0" style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}>
                     <div className="flex items-center gap-1.5 overflow-hidden">
                         <Link to="/messages" className="p-2 -ml-2 rounded-full hover:bg-muted text-primary transition-colors shrink-0">
                             <ArrowLeftIcon className="h-5 w-5" />
@@ -471,7 +461,7 @@ export function MessagesPage() {
                 </div>
 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 relative z-0">
+                <div className="flex-1 overflow-y-auto p-4 relative z-0">
                     {messagesLoading ? (
                         <div className="space-y-4 px-1">
                             {[...Array(5)].map((_, i) => (
@@ -488,37 +478,61 @@ export function MessagesPage() {
                         </div>
                     ) : (
                         <>
-                            {messages.map(msg => {
+                            {messages.map((msg, msgIdx) => {
                                 const repliedMsg = msg.reply_to ? messages.find(m => m.id === msg.reply_to) : null;
+                                const isSender = msg.sender_id === user?.id;
+                                const isMedia = mediaUrlPattern.test(msg.content);
+                                const isVideo = /\.(mp4|webm)(\?.*)?$/i.test(msg.content);
+                                const timeStr = new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                                const swipeStyle = { transform: swipeStates[msg.id] ? `translateX(${swipeStates[msg.id]}px)` : 'translateX(0)' };
+                                const prevMsg = msgIdx > 0 ? messages[msgIdx - 1] : null;
+                                const isConsecutive = !!(prevMsg && prevMsg.sender_id === msg.sender_id);
                                 return (
-                                    <div 
-                                        key={msg.id} 
-                                        className={`flex group ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                                    <div
+                                        key={msg.id}
+                                        className={`flex group ${isConsecutive ? 'mt-[3px]' : 'mt-[9px]'} ${isSender ? 'justify-end' : 'justify-start'}`}
                                         onTouchStart={(e) => handleTouchStart(e, msg.id)}
                                         onTouchMove={(e) => handleTouchMove(e, msg.id)}
                                         onTouchEnd={() => handleTouchEnd(msg.id, msg)}
                                     >
-                                        <div
-                                            className={`max-w-[85%] min-w-0 rounded-2xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${msg.sender_id === user?.id ? 'bg-primary/95 text-white rounded-tr-md' : 'bg-white dark:bg-card text-foreground rounded-tl-md border border-border/50'}`}
-                                            style={{ transform: swipeStates[msg.id] ? `translateX(${swipeStates[msg.id]}px)` : 'translateX(0)' }}
-                                        >
-                                            {repliedMsg && (
-                                                <div className="mb-1.5 rounded-xl bg-background/50 p-2 text-xs border-l-4 border-primary">
-                                                    <span className="font-semibold text-primary">{repliedMsg.sender_id === user?.id ? 'Tú' : chatUser?.full_name}</span>
-                                                    <p className="text-muted-foreground truncate">{repliedMsg.content}</p>
-                                                </div>
-                                            )}
-
-                                            <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5 pt-0.5">
-                                                {renderMessageContent(msg.content)}
-                                                <div className={`flex ml-auto pl-1 items-center gap-1 text-[10px] pb-0.5 ${msg.sender_id === user?.id ? 'text-white/75' : 'text-muted-foreground/60'}`}>
-                                                    <span>{new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
-                                                    {msg.sender_id === user?.id && (
-                                                        msg.is_read ? <CheckCheckIcon className="h-3 w-3 text-sky-300" /> : <CheckIcon className="h-3 w-3" />
-                                                    )}
+                                        {isMedia ? (
+                                            <div
+                                                className={`max-w-[85%] rounded-xl shadow-sm relative overflow-hidden transition-transform duration-100 ${isSender ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
+                                                style={swipeStyle}
+                                            >
+                                                {isVideo
+                                                    ? <video src={msg.content} controls playsInline preload="metadata" onLoadedMetadata={handleMediaLoaded} className="block max-w-full max-h-[300px]" />
+                                                    : <img src={msg.content} alt="" onLoad={handleMediaLoaded} className="block max-w-full max-h-[300px] object-cover cursor-zoom-in" onClick={() => setLightboxSrc(msg.content)} />
+                                                }
+                                                <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+                                                <div className="absolute bottom-1.5 right-2 flex items-center gap-1 text-[11px] text-white drop-shadow-sm">
+                                                    <span>{timeStr}</span>
+                                                    {isSender && (msg.is_read ? <CheckCheckIcon className="h-3 w-3 text-sky-300" /> : <CheckIcon className="h-3 w-3" />)}
                                                 </div>
                                             </div>
-                                        </div>
+                                        ) : (
+                                            <div
+                                                className={`max-w-[85%] min-w-0 rounded-xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${isSender ? 'bg-primary/95 text-white rounded-tr-sm' : 'bg-white dark:bg-card text-foreground rounded-tl-sm border border-border/50'}`}
+                                                style={swipeStyle}
+                                            >
+                                                {repliedMsg && (
+                                                    <div className="mb-1.5 rounded-xl bg-background/50 p-2 text-xs border-l-4 border-primary">
+                                                        <span className="font-semibold text-primary">{repliedMsg.sender_id === user?.id ? 'Tú' : chatUser?.full_name}</span>
+                                                        <p className="text-muted-foreground truncate">{formatMsgPreview(repliedMsg.content)}</p>
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-col pt-0.5">
+                                                    <span className="text-[15px] leading-[1.45] [overflow-wrap:anywhere]">
+                                                        {msg.content}
+                                                        <span aria-hidden className="inline-block w-[76px]">&nbsp;</span>
+                                                    </span>
+                                                    <span className={`self-end -mt-[15px] flex items-center gap-1 text-[10px] whitespace-nowrap ${isSender ? 'text-white/75' : 'text-muted-foreground/60'}`}>
+                                                        {timeStr}
+                                                        {isSender && (msg.is_read ? <CheckCheckIcon className="h-3 w-3 text-sky-300" /> : <CheckIcon className="h-3 w-3" />)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -561,30 +575,20 @@ export function MessagesPage() {
                         <div className="max-w-4xl mx-auto w-full mb-2 flex items-center justify-between rounded-xl bg-muted/50 p-2 text-[13px] border-l-4 border-primary">
                             <div className="flex-1 min-w-0 pr-2">
                                 <span className="font-semibold text-primary block truncate">Respondiendo a {replyingTo?.sender_id === user?.id ? 'Ti' : chatUser?.full_name}</span>
-                                <span className="text-muted-foreground truncate block">{replyingTo?.content}</span>
+                                <span className="text-muted-foreground truncate block">{formatMsgPreview(replyingTo?.content)}</span>
                             </div>
                             <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setReplyingTo(null)}>
                                 <XIcon className="h-4 w-4" />
                             </Button>
                         </div>
                     )}
-                    <div className="flex items-end gap-2 max-w-4xl mx-auto w-full">
-                        <div className="flex-1 flex items-end bg-muted/50 rounded-3xl border border-transparent focus-within:border-primary/30 focus-within:bg-background transition-colors overflow-hidden">
+                    <div className="flex items-center gap-2 max-w-4xl mx-auto w-full">
+                        <div className="flex-1 flex items-center bg-muted/40 rounded-full overflow-hidden min-h-[50px]">
                             <button
-                                className="p-3 pl-4 mb-0 text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
+                                className="p-3 pl-4 text-muted-foreground shrink-0"
                                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                             >
                                 <SmileIcon className="h-[22px] w-[22px]" />
-                            </button>
-                            <button
-                                className="p-3 mb-0 text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center disabled:opacity-50"
-                                onClick={handlePickMedia}
-                                disabled={uploadingMedia}
-                                type="button"
-                            >
-                                {uploadingMedia
-                                    ? <LoaderIcon className="h-[22px] w-[22px] animate-spin" />
-                                    : <ImageIcon className="h-[22px] w-[22px]" />}
                             </button>
                             <Input
                                 placeholder="Escribe un mensaje"
@@ -593,18 +597,38 @@ export function MessagesPage() {
                                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                                 onClick={() => setShowEmojiPicker(false)}
                                 maxLength={1000}
-                                className="border-0 bg-transparent shadow-none px-2 ml-1 focus-visible:ring-0 rounded-none h-[50px] w-full text-[15.5px]"
+                                className="border-0 !bg-transparent shadow-none px-2 focus-visible:ring-0 rounded-none flex-1 h-[50px] text-[15.5px]"
                             />
+                            <button
+                                className="p-3 pr-4 text-muted-foreground shrink-0 disabled:opacity-50"
+                                onClick={handlePickMedia}
+                                disabled={uploadingMedia}
+                                type="button"
+                            >
+                                {uploadingMedia
+                                    ? <LoaderIcon className="h-[22px] w-[22px] animate-spin" />
+                                    : <ImageIcon className="h-[22px] w-[22px]" />}
+                            </button>
                         </div>
                         <Button
                             onClick={handleSend}
                             disabled={sending || !newMessage.trim()}
-                            className="h-12 w-12 shrink-0 rounded-full p-0 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 shadow-neon-primary transition-all"
+                            className="h-12 w-12 shrink-0 rounded-full p-0 flex items-center justify-center bg-primary text-primary-foreground shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:scale-100 disabled:shadow-none"
                         >
-                            <SendIcon className="h-5 w-5 ml-1" />
+                            <SendIcon className="h-5 w-5" />
                         </Button>
                     </div>
                 </div>
+
+                {/* Lightbox */}
+                {lightboxSrc && (
+                    <div className="fixed inset-0 z-[300] bg-black/95 flex items-center justify-center" onClick={() => setLightboxSrc(null)}>
+                        <button className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors" onClick={() => setLightboxSrc(null)}>
+                            <XIcon className="h-6 w-6" />
+                        </button>
+                        <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-contain select-none" onClick={e => e.stopPropagation()} />
+                    </div>
+                )}
             </div>
         );
     }
@@ -702,7 +726,9 @@ export function MessagesPage() {
                                 </button>
                                 {showRequests && (
                                     <div className="mt-2 space-y-2">
-                                        {requestConvs.map(conv => (
+                                        {requestConvs.map(conv => {
+                                            const iReceived = conv.lastMessage?.sender_id !== user?.id;
+                                            return (
                                             <div key={conv.user.id} className="flex items-center gap-3 rounded-xl bg-muted/30 border border-border/50 px-3 py-2.5">
                                                 <div className="h-10 w-10 shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
                                                     {conv.user.avatar_url
@@ -711,29 +737,34 @@ export function MessagesPage() {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="font-semibold text-sm truncate">{conv.user.full_name}</p>
-                                                    <p className="text-xs text-muted-foreground truncate">{conv.lastMessage?.content || 'Nuevo mensaje'}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">{formatMsgPreview(conv.lastMessage?.content) || 'Nuevo mensaje'}</p>
                                                 </div>
-                                                <div className="flex gap-1.5 shrink-0">
-                                                    <Button
-                                                        size="sm"
-                                                        className="h-8 px-3 text-xs rounded-lg"
-                                                        disabled={acceptingId === conv.user.id}
-                                                        onClick={() => handleAcceptRequest(conv)}
-                                                    >
-                                                        {acceptingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : <><UserPlusIcon className="h-3 w-3 mr-1" />Aceptar</>}
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="h-8 px-2 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                        disabled={deletingId === conv.user.id}
-                                                        onClick={() => handleDeleteRequest(conv)}
-                                                    >
-                                                        {deletingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : <Trash2Icon className="h-3.5 w-3.5" />}
-                                                    </Button>
-                                                </div>
+                                                {iReceived ? (
+                                                    <div className="flex gap-1.5 shrink-0">
+                                                        <Button
+                                                            size="sm"
+                                                            className="h-8 px-3 text-xs rounded-lg"
+                                                            disabled={acceptingId === conv.user.id}
+                                                            onClick={() => handleAcceptRequest(conv)}
+                                                        >
+                                                            {acceptingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : <><UserPlusIcon className="h-3 w-3 mr-1" />Aceptar</>}
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-8 px-2 text-xs rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            disabled={deletingId === conv.user.id}
+                                                            onClick={() => handleDeleteRequest(conv)}
+                                                        >
+                                                            {deletingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : <Trash2Icon className="h-3.5 w-3.5" />}
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[11px] text-muted-foreground shrink-0">Enviada</span>
+                                                )}
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -771,7 +802,7 @@ export function MessagesPage() {
                                                             {conv.lastMessage?.is_read ? <CheckCheckIcon className="h-4 w-4 text-blue-500" /> : <CheckIcon className="h-4 w-4" />}
                                                         </span>
                                                     )}
-                                                    <span className="truncate">{conv.lastMessage?.content || <span className="italic opacity-70">Haz iniciado un chat</span>}</span>
+                                                    <span className="truncate">{formatMsgPreview(conv.lastMessage?.content) || <span className="italic opacity-70">Haz iniciado un chat</span>}</span>
                                                 </p>
                                                 {conv.unread > 0 && (
                                                     <div className="shrink-0 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[12px] font-bold text-white shadow-sm">
@@ -793,6 +824,7 @@ export function MessagesPage() {
 
     // Desktop layout - Always show sidebar + chat area
     return (
+        <>
         <div className="h-svh flex bg-background relative z-10">
             {/* Sidebar - User List */}
             <div className="w-80 border-r border-border flex flex-col bg-muted/20">
@@ -895,7 +927,9 @@ export function MessagesPage() {
                                 </button>
                                 {showRequests && (
                                     <div className="mt-2 space-y-1.5">
-                                        {requestConvs.map(conv => (
+                                        {requestConvs.map(conv => {
+                                            const iReceived = conv.lastMessage?.sender_id !== user?.id;
+                                            return (
                                             <div key={conv.user.id} className="flex items-center gap-2 rounded-lg bg-muted/30 border border-border/50 px-2.5 py-2">
                                                 <div className="h-8 w-8 shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
                                                     {conv.user.avatar_url
@@ -904,29 +938,34 @@ export function MessagesPage() {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="font-semibold text-xs truncate">{conv.user.full_name}</p>
-                                                    <p className="text-[10px] text-muted-foreground truncate">{conv.lastMessage?.content || 'Nuevo mensaje'}</p>
+                                                    <p className="text-[10px] text-muted-foreground truncate">{formatMsgPreview(conv.lastMessage?.content) || 'Nuevo mensaje'}</p>
                                                 </div>
-                                                <div className="flex gap-1 shrink-0">
-                                                    <Button
-                                                        size="sm"
-                                                        className="h-7 px-2 text-[10px] rounded-md"
-                                                        disabled={acceptingId === conv.user.id}
-                                                        onClick={() => handleAcceptRequest(conv)}
-                                                    >
-                                                        {acceptingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : 'Aceptar'}
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="h-7 px-1.5 text-[10px] rounded-md text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                        disabled={deletingId === conv.user.id}
-                                                        onClick={() => handleDeleteRequest(conv)}
-                                                    >
-                                                        {deletingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : <Trash2Icon className="h-3 w-3" />}
-                                                    </Button>
-                                                </div>
+                                                {iReceived ? (
+                                                    <div className="flex gap-1 shrink-0">
+                                                        <Button
+                                                            size="sm"
+                                                            className="h-7 px-2 text-[10px] rounded-md"
+                                                            disabled={acceptingId === conv.user.id}
+                                                            onClick={() => handleAcceptRequest(conv)}
+                                                        >
+                                                            {acceptingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : 'Aceptar'}
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-7 px-1.5 text-[10px] rounded-md text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            disabled={deletingId === conv.user.id}
+                                                            onClick={() => handleDeleteRequest(conv)}
+                                                        >
+                                                            {deletingId === conv.user.id ? <LoaderIcon className="h-3 w-3 animate-spin" /> : <Trash2Icon className="h-3 w-3" />}
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground shrink-0">Enviada</span>
+                                                )}
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -968,7 +1007,7 @@ export function MessagesPage() {
                                                             {conv.lastMessage?.is_read ? <CheckCheckIcon className="h-3 w-3 text-blue-500" /> : <CheckIcon className="h-3 w-3" />}
                                                         </span>
                                                     )}
-                                                    <span className="truncate">{conv.lastMessage?.content || <span className="italic opacity-70">Haz iniciado un chat</span>}</span>
+                                                    <span className="truncate">{formatMsgPreview(conv.lastMessage?.content) || <span className="italic opacity-70">Haz iniciado un chat</span>}</span>
                                                 </p>
                                                 {conv.unread > 0 && (
                                                     <div className="shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1 text-xs font-bold text-white">
@@ -1022,7 +1061,7 @@ export function MessagesPage() {
                         </div>
 
                         {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        <div className="flex-1 overflow-y-auto p-4">
                             {messagesLoading ? (
                                 <div className="space-y-4 px-1">
                                     {[...Array(5)].map((_, i) => (
@@ -1039,38 +1078,61 @@ export function MessagesPage() {
                                 </div>
                             ) : (
                                 <>
-                                    {messages.map(msg => {
+                                    {messages.map((msg, msgIdx) => {
                                         const repliedMsg = msg.reply_to ? messages.find(m => m.id === msg.reply_to) : null;
+                                        const isSender = msg.sender_id === user?.id;
+                                        const isMedia = mediaUrlPattern.test(msg.content);
+                                        const isVideo = /\.(mp4|webm)(\?.*)?$/i.test(msg.content);
+                                        const timeStr = new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                                        const swipeStyle = { transform: swipeStates[msg.id] ? `translateX(${swipeStates[msg.id]}px)` : 'translateX(0)' };
+                                        const prevMsg = msgIdx > 0 ? messages[msgIdx - 1] : null;
+                                        const isConsecutive = !!(prevMsg && prevMsg.sender_id === msg.sender_id);
                                         return (
-                                            <div 
-                                                key={msg.id} 
-                                                className={`flex group ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+                                            <div
+                                                key={msg.id}
+                                                className={`flex group ${isConsecutive ? 'mt-[3px]' : 'mt-[9px]'} ${isSender ? 'justify-end' : 'justify-start'}`}
                                                 onTouchStart={(e) => handleTouchStart(e, msg.id)}
                                                 onTouchMove={(e) => handleTouchMove(e, msg.id)}
                                                 onTouchEnd={() => handleTouchEnd(msg.id, msg)}
                                             >
-                                                <div className={`max-w-[75%] min-w-0 rounded-2xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${
-                                                    msg.sender_id === user?.id
-                                                        ? 'bg-primary text-white rounded-tr-md'
-                                                        : 'bg-muted text-foreground rounded-tl-md border border-border/50'
-                                                }`} style={{ transform: swipeStates[msg.id] ? `translateX(${swipeStates[msg.id]}px)` : 'translateX(0)' }}>
-                                                    {repliedMsg && (
-                                                        <div className="mb-1.5 rounded-xl bg-background/50 p-2 text-xs border-l-4 border-primary">
-                                                            <span className="font-semibold text-primary">{repliedMsg.sender_id === user?.id ? 'Tú' : chatUser?.full_name}</span>
-                                                            <p className="text-muted-foreground truncate">{repliedMsg.content}</p>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5 pt-0.5">
-                                                        {renderMessageContentDesktop(msg.content)}
-                                                        <div className={`flex ml-auto pl-1 items-center gap-1 text-xs pb-0.5 ${msg.sender_id === user?.id ? 'text-white/75' : 'text-muted-foreground/60'}`}>
-                                                            <span>{new Date(msg.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</span>
-                                                            {msg.sender_id === user?.id && (
-                                                                msg.is_read ? <CheckCheckIcon className="h-3 w-3 text-sky-300" /> : <CheckIcon className="h-3 w-3" />
-                                                            )}
+                                                {isMedia ? (
+                                                    <div
+                                                        className={`max-w-[75%] rounded-xl shadow-sm relative overflow-hidden transition-transform duration-100 ${isSender ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
+                                                        style={swipeStyle}
+                                                    >
+                                                        {isVideo
+                                                            ? <video src={msg.content} controls playsInline preload="metadata" onLoadedMetadata={handleMediaLoaded} className="block max-w-full max-h-[300px]" />
+                                                            : <img src={msg.content} alt="" onLoad={handleMediaLoaded} className="block max-w-full max-h-[300px] object-cover cursor-zoom-in" onClick={() => setLightboxSrc(msg.content)} />
+                                                        }
+                                                        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+                                                        <div className="absolute bottom-1.5 right-2 flex items-center gap-1 text-[11px] text-white drop-shadow-sm">
+                                                            <span>{timeStr}</span>
+                                                            {isSender && (msg.is_read ? <CheckCheckIcon className="h-3 w-3 text-sky-300" /> : <CheckIcon className="h-3 w-3" />)}
                                                         </div>
                                                     </div>
-                                                </div>
+                                                ) : (
+                                                    <div
+                                                        className={`max-w-[75%] min-w-0 rounded-xl px-3 py-1.5 shadow-sm relative transition-transform duration-100 ${isSender ? 'bg-primary text-white rounded-tr-sm' : 'bg-muted text-foreground rounded-tl-sm border border-border/50'}`}
+                                                        style={swipeStyle}
+                                                    >
+                                                        {repliedMsg && (
+                                                            <div className="mb-1.5 rounded-xl bg-background/50 p-2 text-xs border-l-4 border-primary">
+                                                                <span className="font-semibold text-primary">{repliedMsg.sender_id === user?.id ? 'Tú' : chatUser?.full_name}</span>
+                                                                <p className="text-muted-foreground truncate">{formatMsgPreview(repliedMsg.content)}</p>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex flex-col pt-0.5">
+                                                            <span className="text-sm leading-[1.45] [overflow-wrap:anywhere]">
+                                                                {msg.content}
+                                                                <span aria-hidden className="inline-block w-[76px]">&nbsp;</span>
+                                                            </span>
+                                                            <span className={`self-end -mt-[15px] flex items-center gap-1 text-[10px] whitespace-nowrap ${isSender ? 'text-white/75' : 'text-muted-foreground/60'}`}>
+                                                                {timeStr}
+                                                                {isSender && (msg.is_read ? <CheckCheckIcon className="h-3 w-3 text-sky-300" /> : <CheckIcon className="h-3 w-3" />)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -1114,7 +1176,7 @@ export function MessagesPage() {
                                 <div className="mb-2 flex items-center justify-between rounded-xl bg-muted/50 p-2 text-xs border-l-4 border-primary">
                                     <div className="flex-1 min-w-0 pr-2">
                                         <span className="font-semibold text-primary block truncate">Respondiendo a {replyingTo?.sender_id === user?.id ? 'Ti' : chatUser?.full_name}</span>
-                                        <span className="text-muted-foreground truncate block">{replyingTo?.content}</span>
+                                        <span className="text-muted-foreground truncate block">{formatMsgPreview(replyingTo?.content)}</span>
                                     </div>
                                     <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setReplyingTo(null)}>
                                         <XIcon className="h-4 w-4" />
@@ -1122,23 +1184,13 @@ export function MessagesPage() {
                                 </div>
                             )}
 
-                            <div className="flex items-end gap-2">
-                                <div className="flex-1 flex items-end bg-muted/50 rounded-2xl border border-transparent focus-within:border-primary/30 focus-within:bg-background transition-colors overflow-hidden">
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1 flex items-center bg-muted/40 rounded-full overflow-hidden min-h-[44px]">
                                     <button
-                                        className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                        className="p-2 pl-3.5 text-muted-foreground shrink-0"
                                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                                     >
                                         <SmileIcon className="h-5 w-5" />
-                                    </button>
-                                    <button
-                                        className="p-2 text-muted-foreground hover:text-foreground transition-colors shrink-0 disabled:opacity-50"
-                                        onClick={handlePickMedia}
-                                        disabled={uploadingMedia}
-                                        type="button"
-                                    >
-                                        {uploadingMedia
-                                            ? <LoaderIcon className="h-5 w-5 animate-spin" />
-                                            : <ImageIcon className="h-5 w-5" />}
                                     </button>
                                     <Input
                                         placeholder="Escribe un mensaje"
@@ -1147,13 +1199,23 @@ export function MessagesPage() {
                                         onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                                         onClick={() => setShowEmojiPicker(false)}
                                         maxLength={1000}
-                                        className="border-0 bg-transparent shadow-none px-2 focus-visible:ring-0 rounded-none h-10 w-full"
+                                        className="border-0 !bg-transparent shadow-none px-2 focus-visible:ring-0 rounded-none flex-1 h-10"
                                     />
+                                    <button
+                                        className="p-2 pr-3.5 text-muted-foreground shrink-0 disabled:opacity-50"
+                                        onClick={handlePickMedia}
+                                        disabled={uploadingMedia}
+                                        type="button"
+                                    >
+                                        {uploadingMedia
+                                            ? <LoaderIcon className="h-5 w-5 animate-spin" />
+                                            : <ImageIcon className="h-5 w-5" />}
+                                    </button>
                                 </div>
                                 <Button
                                     onClick={handleSend}
                                     disabled={sending || !newMessage.trim()}
-                                    className="h-10 w-10 shrink-0 rounded-full p-0 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90"
+                                    className="h-10 w-10 shrink-0 rounded-full p-0 flex items-center justify-center bg-primary text-primary-foreground shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:scale-100 disabled:shadow-none"
                                 >
                                     <SendIcon className="h-4 w-4" />
                                 </Button>
@@ -1172,5 +1234,16 @@ export function MessagesPage() {
                 )}
             </div>
         </div>
+
+        {/* Lightbox */}
+        {lightboxSrc && (
+            <div className="fixed inset-0 z-[300] bg-black/95 flex items-center justify-center" onClick={() => setLightboxSrc(null)}>
+                <button className="absolute top-4 right-4 z-10 p-2 text-white/70 hover:text-white" onClick={() => setLightboxSrc(null)}>
+                    <XIcon className="h-6 w-6" />
+                </button>
+                <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-contain select-none" onClick={e => e.stopPropagation()} />
+            </div>
+        )}
+        </>
     );
 }
