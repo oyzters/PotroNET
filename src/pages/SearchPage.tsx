@@ -2,8 +2,21 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Input } from '@/components/ui/input';
-import { SearchIcon, UserIcon, GraduationCapIcon, BookOpenIcon, StarIcon } from 'lucide-react';
+import { SearchIcon, UserIcon, GraduationCapIcon, BookOpenIcon, StarIcon, ClockIcon, XIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+const RECENT_SEARCHES_KEY = 'potronet-recent-searches';
+const MAX_RECENT = 8;
+
+function loadRecentSearches(): string[] {
+    try {
+        return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+    } catch { return []; }
+}
+
+function saveRecentSearches(searches: string[]) {
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches));
+}
 
 interface SearchResults {
     users?: Array<{ id: string; full_name: string; avatar_url: string; email: string; career: { id: string; name: string } | null }>;
@@ -28,6 +41,7 @@ export function SearchPage() {
     const [activeTab, setActiveTab] = useState<TabKey>('students');
     const [explore, setExplore] = useState<ExploreData>({ professors: [], tutoring: [], users: [] });
     const [loadingExplore, setLoadingExplore] = useState(false);
+    const [recentSearches, setRecentSearches] = useState<string[]>(loadRecentSearches);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
@@ -46,9 +60,34 @@ export function SearchPage() {
         }).finally(() => setLoadingExplore(false));
     }, [session?.access_token]);
 
+    const addRecentSearch = useCallback((q: string) => {
+        const trimmed = q.trim();
+        if (!trimmed || trimmed.length < 2) return;
+        setRecentSearches(prev => {
+            const filtered = prev.filter(s => s.toLowerCase() !== trimmed.toLowerCase());
+            const updated = [trimmed, ...filtered].slice(0, MAX_RECENT);
+            saveRecentSearches(updated);
+            return updated;
+        });
+    }, []);
+
+    const removeRecentSearch = useCallback((q: string) => {
+        setRecentSearches(prev => {
+            const updated = prev.filter(s => s !== q);
+            saveRecentSearches(updated);
+            return updated;
+        });
+    }, []);
+
+    const clearRecentSearches = useCallback(() => {
+        setRecentSearches([]);
+        saveRecentSearches([]);
+    }, []);
+
     const performSearch = useCallback(async (q: string) => {
         if (!session?.access_token || q.trim().length < 2) return;
         setLoading(true);
+        addRecentSearch(q);
         try {
             const data = await api<SearchResults>(`/search?q=${encodeURIComponent(q.trim())}`, {
                 token: session.access_token,
@@ -63,7 +102,7 @@ export function SearchPage() {
         } finally {
             setLoading(false);
         }
-    }, [session?.access_token]);
+    }, [session?.access_token, addRecentSearch]);
 
     const handleInputChange = (value: string) => {
         setQuery(value);
@@ -113,6 +152,43 @@ export function SearchPage() {
                     )}
                 </div>
             </div>
+
+            {/* Recent Searches */}
+            {showExplore && recentSearches.length > 0 && (
+                <div className="pt-3 pb-1">
+                    <div className="flex items-center justify-between px-4 mb-1">
+                        <h3 className="text-base font-semibold">Búsquedas recientes</h3>
+                        <button
+                            onClick={clearRecentSearches}
+                            className="text-sm text-primary font-medium"
+                        >
+                            Borrar todo
+                        </button>
+                    </div>
+                    <div className="px-2">
+                        {recentSearches.map((s) => (
+                            <div key={s} className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-muted/50 transition-colors">
+                                <ClockIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <button
+                                    className="flex-1 text-left text-sm font-medium truncate"
+                                    onClick={() => {
+                                        setQuery(s);
+                                        performSearch(s);
+                                    }}
+                                >
+                                    {s}
+                                </button>
+                                <button
+                                    onClick={() => removeRecentSearch(s)}
+                                    className="p-1 rounded-full hover:bg-muted text-muted-foreground shrink-0"
+                                >
+                                    <XIcon className="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Explore Mode */}
             {showExplore && (
