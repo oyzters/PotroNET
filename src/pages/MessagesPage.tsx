@@ -85,6 +85,7 @@ export function MessagesPage() {
     const conversationsRef = useRef<Conversation[]>([]);
 
     const activeUserId = userId ?? null;
+    const chatContainerRef = useRef<HTMLDivElement>(null);
 
     // Mantener ref de conversaciones sincronizada sin recrear fetchMessages
     useEffect(() => {
@@ -205,6 +206,35 @@ export function MessagesPage() {
 
         return () => { supabase.removeChannel(channel); };
     }, [user?.id, fetchConversations]);
+
+    // Visual Viewport: keeps header locked when keyboard opens on iOS
+    useEffect(() => {
+        if (!activeUserId || isDesktop) return;
+
+        const vv = window.visualViewport;
+        if (!vv) return;
+
+        const updateLayout = () => {
+            const el = chatContainerRef.current;
+            if (!el) return;
+            el.style.height = `${vv.height}px`;
+            el.style.top = `${vv.offsetTop}px`;
+        };
+
+        vv.addEventListener('resize', updateLayout);
+        vv.addEventListener('scroll', updateLayout);
+        updateLayout();
+
+        return () => {
+            vv.removeEventListener('resize', updateLayout);
+            vv.removeEventListener('scroll', updateLayout);
+            const el = chatContainerRef.current;
+            if (el) {
+                el.style.height = '';
+                el.style.top = '';
+            }
+        };
+    }, [activeUserId, isDesktop]);
 
     const handleSend = async () => {
         if (!session?.access_token || !activeUserId || !newMessage.trim() || !user?.id) return;
@@ -433,7 +463,11 @@ export function MessagesPage() {
     // Mobile chat view - When specific user is selected
     if (activeUserId && !isDesktop) {
         return (
-            <div className="fixed inset-x-0 top-0 bottom-0 z-[100] flex flex-col bg-background">
+            <div
+                ref={chatContainerRef}
+                className="fixed inset-x-0 top-0 z-[100] flex flex-col bg-background"
+                style={{ height: '100dvh' }}
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between bg-white dark:bg-card px-3 pb-2 border-b border-border shadow-sm shrink-0" style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}>
                     <div className="flex items-center gap-1.5 overflow-hidden">
@@ -603,6 +637,11 @@ export function MessagesPage() {
                                 onChange={handleInputChange}
                                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                                 onClick={() => setShowEmojiPicker(false)}
+                                onFocus={() => {
+                                    setTimeout(() => {
+                                        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                    }, 320);
+                                }}
                                 maxLength={1000}
                                 className="border-0 !bg-transparent shadow-none px-2 focus-visible:ring-0 rounded-none flex-1 h-[50px] text-[15.5px]"
                             />
