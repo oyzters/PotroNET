@@ -19,9 +19,7 @@ export function PrivacyPage() {
                 </Link>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-                            <span className="text-xs font-black text-primary-foreground">P</span>
-                        </div>
+                        <img src="/pwa.png" alt="PotroNET" className="h-7 w-7 rounded-lg object-cover" />
                         <span className="font-bold">
                             Potro<span className="text-primary">NET</span>
                         </span>

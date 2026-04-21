@@ -111,7 +111,7 @@ export function RankingPage() {
                 setRankings(d.rankings);
                 setTotalPages(d.pagination.totalPages);
             })
-            .catch(e => console.error('Rankings fetch error:', e))
+            .catch(e => { if (import.meta.env.DEV) console.error('Rankings fetch error:', e); })
             .finally(() => setLoading(false));
     }, [session?.access_token, page, selectedCareer, tab]);
 
@@ -120,7 +120,7 @@ export function RankingPage() {
         setLoadingProfs(true);
         api<{ professors: RankedProfessor[] }>('/professors?sort=rating&limit=20', { token: session.access_token })
             .then(d => setProfessors(d.professors))
-            .catch(e => console.error('Professors fetch error:', e))
+            .catch(e => { if (import.meta.env.DEV) console.error('Professors fetch error:', e); })
             .finally(() => setLoadingProfs(false));
     }, [session?.access_token, tab]);
 

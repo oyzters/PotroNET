@@ -672,7 +672,7 @@ export function MessagesPage() {
                         <button className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors" onClick={() => setLightboxSrc(null)}>
                             <XIcon className="h-6 w-6" />
                         </button>
-                        <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-contain select-none" onClick={e => e.stopPropagation()} />
+                        <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-cover select-none" onClick={e => e.stopPropagation()} />
                     </div>
                 )}
             </div>
@@ -880,9 +880,7 @@ export function MessagesPage() {
                         <Link to="/" className="p-2 rounded-full hover:bg-muted text-primary transition-colors">
                             <ArrowLeftIcon className="h-5 w-5" />
                         </Link>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                            <span className="text-sm font-bold text-primary-foreground">P</span>
-                        </div>
+                        <img src="/pwa.png" alt="PotroNET" className="h-8 w-8 rounded-lg object-cover" />
                         <span className="text-lg font-bold">
                             Potro<span className="text-primary">NET</span>
                         </span>
@@ -1287,7 +1285,7 @@ export function MessagesPage() {
                 <button className="absolute top-4 right-4 z-10 p-2 text-white/70 hover:text-white" onClick={() => setLightboxSrc(null)}>
                     <XIcon className="h-6 w-6" />
                 </button>
-                <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-contain select-none" onClick={e => e.stopPropagation()} />
+                <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-cover select-none" onClick={e => e.stopPropagation()} />
             </div>
         )}
         </>

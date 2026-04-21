@@ -89,9 +89,7 @@ export function LoginPage() {
             <div className="flex flex-1 items-center justify-center p-4">
                 <Card className="w-full max-w-md">
                     <CardHeader className="text-center">
-                        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25">
-                            <span className="text-lg font-black text-primary-foreground">P</span>
-                        </div>
+                        <img src="/pwa.png" alt="PotroNET" className="mx-auto mb-4 h-12 w-12 rounded-xl object-cover shadow-lg shadow-primary/25" />
                         <CardTitle className="text-2xl">Bienvenido de vuelta</CardTitle>
                         <CardDescription>
                             Inicia sesión con tu cuenta PotroNET
