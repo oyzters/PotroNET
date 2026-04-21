@@ -147,12 +147,23 @@ export function FeedPage() {
       api<{ rankings: any[] }>('/rankings?limit=3', { token: session.access_token }),
       api<{ professors: any[] }>('/professors?sort=rating&limit=3', { token: session.access_token }),
       api<{ offers: any[] }>('/tutoring?limit=3', { token: session.access_token }),
-      api<{ profiles: any[] }>('/profiles?limit=10', { token: session.access_token }),
-    ]).then(([rankRes, profRes, tutRes, profilesRes]) => {
+      api<{ profiles: any[] }>('/profiles?limit=20', { token: session.access_token }),
+      api<{ friends: any[] }>('/friends', { token: session.access_token }),
+    ]).then(([rankRes, profRes, tutRes, profilesRes, friendsRes]) => {
       if (rankRes.status === 'fulfilled') setRankingUsers(rankRes.value.rankings);
       if (profRes.status === 'fulfilled') setProfessors(profRes.value.professors);
       if (tutRes.status === 'fulfilled') setTutoringOffers(tutRes.value.offers);
-      if (profilesRes.status === 'fulfilled') setNewUsers(profilesRes.value.profiles.slice(0, 10));
+      if (profilesRes.status === 'fulfilled') {
+        const friendIds = new Set(
+          friendsRes.status === 'fulfilled'
+            ? (friendsRes.value.friends || []).map((f: any) => f.id)
+            : []
+        );
+        const filtered = profilesRes.value.profiles.filter(
+          p => p.id !== user?.id && !friendIds.has(p.id)
+        );
+        setNewUsers(filtered.slice(0, 10));
+      }
     }).finally(() => setWidgetsLoading(false));
   }, [session?.access_token]);
 
