@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { XIcon, CheckIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface AvatarCropModalProps {
