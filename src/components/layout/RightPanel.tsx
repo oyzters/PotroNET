@@ -39,11 +39,22 @@ export function RightPanel() {
         const fetchSuggested = async () => {
             if (!session?.access_token) return;
             try {
-                const data = await api<{ profiles: SuggestedUser[] }>(
-                    '/profiles?limit=5',
-                    { token: session.access_token }
+                const [profilesData, friendsData] = await Promise.allSettled([
+                    api<{ profiles: SuggestedUser[] }>('/profiles?limit=10', { token: session.access_token }),
+                    api<{ friends: { id: string }[] }>('/friends', { token: session.access_token }),
+                ]);
+                const friendIds = new Set(
+                    friendsData.status === 'fulfilled'
+                        ? (friendsData.value.friends || []).map(f => f.id)
+                        : []
                 );
-                setSuggested((data.profiles || []).filter(p => p.id !== profile?.id).slice(0, 4));
+                if (profilesData.status === 'fulfilled') {
+                    setSuggested(
+                        (profilesData.value.profiles || [])
+                            .filter(p => p.id !== profile?.id && !friendIds.has(p.id))
+                            .slice(0, 4)
+                    );
+                }
             } catch { /* silent */ }
         };
         fetchSuggested();

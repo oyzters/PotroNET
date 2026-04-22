@@ -1,9 +1,22 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { Input } from '@/components/ui/input';
-import { SearchIcon, UserIcon, GraduationCapIcon, BookOpenIcon, StarIcon } from 'lucide-react';
+import { SearchIcon, UserIcon, GraduationCapIcon, BookOpenIcon, StarIcon, ClockIcon, XIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+const RECENT_SEARCHES_KEY = 'potronet-recent-searches';
+const MAX_RECENT = 8;
+
+function loadRecentSearches(): string[] {
+    try {
+        return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+    } catch { return []; }
+}
+
+function saveRecentSearches(searches: string[]) {
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches));
+}
 
 interface SearchResults {
     users?: Array<{ id: string; full_name: string; avatar_url: string; email: string; career: { id: string; name: string } | null }>;
@@ -14,41 +27,43 @@ interface SearchResults {
 
 type TabKey = 'students' | 'professors' | 'tutoring';
 
-interface ExploreData {
-    professors: SearchResults['professors'];
-    tutoring: SearchResults['tutoring'];
-    users: SearchResults['users'];
-}
-
 export function SearchPage() {
     const { session } = useAuth();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResults | null>(null);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<TabKey>('students');
-    const [explore, setExplore] = useState<ExploreData>({ professors: [], tutoring: [], users: [] });
-    const [loadingExplore, setLoadingExplore] = useState(false);
+    const [recentSearches, setRecentSearches] = useState<string[]>(loadRecentSearches);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    useEffect(() => {
-        if (!session?.access_token) return;
-        setLoadingExplore(true);
-        const token = session.access_token;
-        Promise.all([
-            api<SearchResults>(`/search?q=a`, { token }).catch(() => ({} as SearchResults)),
-        ]).then(([searchData]) => {
-            const sortedProfs = [...(searchData.professors || [])].sort((a, b) => Number(b.avg_rating) - Number(a.avg_rating)).slice(0, 8);
-            setExplore({
-                professors: sortedProfs,
-                tutoring: (searchData.tutoring || []).slice(0, 8),
-                users: (searchData.users || []).slice(0, 8),
-            });
-        }).finally(() => setLoadingExplore(false));
-    }, [session?.access_token]);
+    const addRecentSearch = useCallback((q: string) => {
+        const trimmed = q.trim();
+        if (!trimmed || trimmed.length < 2) return;
+        setRecentSearches(prev => {
+            const filtered = prev.filter(s => s.toLowerCase() !== trimmed.toLowerCase());
+            const updated = [trimmed, ...filtered].slice(0, MAX_RECENT);
+            saveRecentSearches(updated);
+            return updated;
+        });
+    }, []);
+
+    const removeRecentSearch = useCallback((q: string) => {
+        setRecentSearches(prev => {
+            const updated = prev.filter(s => s !== q);
+            saveRecentSearches(updated);
+            return updated;
+        });
+    }, []);
+
+    const clearRecentSearches = useCallback(() => {
+        setRecentSearches([]);
+        saveRecentSearches([]);
+    }, []);
 
     const performSearch = useCallback(async (q: string) => {
         if (!session?.access_token || q.trim().length < 2) return;
         setLoading(true);
+        addRecentSearch(q);
         try {
             const data = await api<SearchResults>(`/search?q=${encodeURIComponent(q.trim())}`, {
                 token: session.access_token,
@@ -63,7 +78,7 @@ export function SearchPage() {
         } finally {
             setLoading(false);
         }
-    }, [session?.access_token]);
+    }, [session?.access_token, addRecentSearch]);
 
     const handleInputChange = (value: string) => {
         setQuery(value);
@@ -114,76 +129,40 @@ export function SearchPage() {
                 </div>
             </div>
 
-            {/* Explore Mode */}
-            {showExplore && (
-                <div className="pt-2 space-y-6">
-                    {/* Profesores destacados */}
-                    <ExploreSection title="Profesores destacados" linkTo="/professors" loading={loadingExplore}>
-                        {(explore.professors && explore.professors.length > 0) ? (
-                            <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-4 pb-2">
-                                {explore.professors.map((p) => (
-                                    <Link to={`/professors/${p.id}`} key={p.id} className="snap-start shrink-0 w-20 flex flex-col items-center text-center">
-                                        <div className="relative">
-                                            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                                                <GraduationCapIcon className="h-7 w-7 text-white" />
-                                            </div>
-                                            <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
-                                                {Number(p.avg_rating).toFixed(1)}
-                                            </div>
-                                        </div>
-                                        <p className="text-xs font-medium mt-1.5 line-clamp-2 leading-tight">{p.full_name}</p>
-                                    </Link>
-                                ))}
+            {/* Recent Searches */}
+            {showExplore && recentSearches.length > 0 && (
+                <div className="pt-3 pb-1">
+                    <div className="flex items-center justify-between px-4 mb-1">
+                        <h3 className="text-base font-semibold">Búsquedas recientes</h3>
+                        <button
+                            onClick={clearRecentSearches}
+                            className="text-sm text-primary font-medium"
+                        >
+                            Borrar todo
+                        </button>
+                    </div>
+                    <div className="px-2">
+                        {recentSearches.map((s) => (
+                            <div key={s} className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-muted/50 transition-colors">
+                                <ClockIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <button
+                                    className="flex-1 text-left text-sm font-medium truncate"
+                                    onClick={() => {
+                                        setQuery(s);
+                                        performSearch(s);
+                                    }}
+                                >
+                                    {s}
+                                </button>
+                                <button
+                                    onClick={() => removeRecentSearch(s)}
+                                    className="p-1 rounded-full hover:bg-muted text-muted-foreground shrink-0"
+                                >
+                                    <XIcon className="h-3.5 w-3.5" />
+                                </button>
                             </div>
-                        ) : !loadingExplore ? (
-                            <p className="text-muted-foreground text-sm px-4">No hay profesores destacados aún.</p>
-                        ) : null}
-                    </ExploreSection>
-
-                    {/* Tutorías disponibles */}
-                    <ExploreSection title="Tutorías disponibles" linkTo="/tutoring" loading={loadingExplore}>
-                        {(explore.tutoring && explore.tutoring.length > 0) ? (
-                            <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-4 pb-2">
-                                {explore.tutoring.map((t) => (
-                                    <Link to={`/profile/${t.tutor.id}`} key={t.id} className="snap-start shrink-0 w-28 flex flex-col items-center text-center">
-                                        <div className="h-14 w-14 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                                            {t.tutor.avatar_url ? (
-                                                <img src={t.tutor.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
-                                            ) : (
-                                                <BookOpenIcon className="h-6 w-6 text-white" />
-                                            )}
-                                        </div>
-                                        <p className="text-xs font-medium mt-1.5 line-clamp-1 leading-tight">{t.subject_name}</p>
-                                        <p className="text-[11px] text-muted-foreground line-clamp-1">{t.tutor.full_name}</p>
-                                    </Link>
-                                ))}
-                            </div>
-                        ) : !loadingExplore ? (
-                            <p className="text-muted-foreground text-sm px-4">No hay tutorías disponibles aún.</p>
-                        ) : null}
-                    </ExploreSection>
-
-                    {/* Usuarios populares */}
-                    <ExploreSection title="Usuarios populares" linkTo="/rankings" loading={loadingExplore}>
-                        {(explore.users && explore.users.length > 0) ? (
-                            <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-4 pb-2">
-                                {explore.users.map((u) => (
-                                    <Link to={`/profile/${u.id}`} key={u.id} className="snap-start shrink-0 w-20 flex flex-col items-center text-center">
-                                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-primary/20">
-                                            {u.avatar_url ? (
-                                                <img src={u.avatar_url} alt="" className="h-full w-full object-cover" />
-                                            ) : (
-                                                <UserIcon className="h-7 w-7 text-primary" />
-                                            )}
-                                        </div>
-                                        <p className="text-xs font-medium mt-1.5 line-clamp-2 leading-tight">{u.full_name}</p>
-                                    </Link>
-                                ))}
-                            </div>
-                        ) : !loadingExplore ? (
-                            <p className="text-muted-foreground text-sm px-4">Pronto verás usuarios populares aquí.</p>
-                        ) : null}
-                    </ExploreSection>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -279,14 +258,3 @@ export function SearchPage() {
     );
 }
 
-function ExploreSection({ title, linkTo, loading, children }: { title: string; linkTo: string; loading: boolean; children: React.ReactNode }) {
-    return (
-        <div>
-            <div className="flex items-center justify-between px-4 mb-2">
-                <h3 className="text-base font-semibold">{title}</h3>
-                <Link to={linkTo} className="text-sm text-primary font-medium">Ver todo</Link>
-            </div>
-            {loading ? null : children}
-        </div>
-    );
-}

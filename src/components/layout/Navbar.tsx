@@ -39,9 +39,7 @@ export function Navbar() {
                 {/* Left: logo */}
                 <div className="flex items-center gap-2">
                     <Link to="/feed" className="flex items-center gap-2 group">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25 transition-all duration-300 group-hover:shadow-primary/40">
-                            <span className="text-base font-black text-primary-foreground">P</span>
-                        </div>
+                        <img src="/pwa.png" alt="PotroNET" className="h-9 w-9 rounded-xl object-cover shadow-lg shadow-primary/25 transition-all duration-300 group-hover:shadow-primary/40" />
                         <span className="hidden text-lg font-bold sm:block">
                             Potro<span className="text-primary">NET</span>
                         </span>

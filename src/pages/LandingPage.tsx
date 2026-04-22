@@ -70,9 +70,7 @@ export function LandingPage() {
             <nav className="sticky top-0 left-0 right-0 w-full border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60 z-40">
                 <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25">
-                            <span className="text-sm font-black text-primary-foreground">P</span>
-                        </div>
+                        <img src="/pwa.png" alt="PotroNET" className="h-9 w-9 rounded-xl object-cover shadow-lg shadow-primary/25" />
                         <span className="text-xl font-bold">
                             Potro<span className="text-primary">NET</span>
                         </span>
@@ -336,9 +334,7 @@ export function LandingPage() {
                         {/* Brand Column */}
                         <div className="md:col-span-2">
                             <div className="flex items-center gap-2 mb-4">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                                    <span className="text-sm font-black text-primary-foreground">P</span>
-                                </div>
+                                <img src="/pwa.png" alt="PotroNET" className="h-8 w-8 rounded-lg object-cover" />
                                 <span className="text-xl font-bold">
                                     Potro<span className="text-primary">NET</span>
                                 </span>

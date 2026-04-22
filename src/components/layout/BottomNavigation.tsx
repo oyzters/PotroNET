@@ -44,6 +44,7 @@ export function BottomNavigation() {
     const navigate = useNavigate();
     const location = useLocation();
     const [showMore, setShowMore] = useState(false);
+    const [feedTapped, setFeedTapped] = useState(false);
 
     const profilePath = profile ? `/profile/${profile.id}` : '/login';
     const isProfileActive = location.pathname.startsWith('/profile/');
@@ -140,26 +141,54 @@ export function BottomNavigation() {
             >
                 <div className="grid h-[60px]" style={{ gridTemplateColumns: '1fr 1fr 56px 1fr 1fr' }}>
                     {/* Feed */}
-                    {leftItems.map(item => (
-                        <NavLink
-                            key={item.to}
-                            to={item.to}
-                            onClick={() => setShowMore(false)}
-                            className={({ isActive }) =>
-                                `flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`
-                            }
-                        >
-                            {({ isActive }) => (
-                                <>
+                    {leftItems.map(item => {
+                        const isOnThisRoute = location.pathname === item.to;
+                        if (item.to === '/feed') {
+                            return (
+                                <button
+                                    key={item.to}
+                                    onClick={() => {
+                                        setShowMore(false);
+                                        if (isOnThisRoute) {
+                                            if (feedTapped) return;
+                                            setFeedTapped(true);
+                                            window.dispatchEvent(new Event('feed-tab-press'));
+                                            setTimeout(() => setFeedTapped(false), 2000);
+                                        } else {
+                                            navigate('/feed');
+                                        }
+                                    }}
+                                    className={`flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors ${isOnThisRoute ? 'text-primary' : 'text-muted-foreground'}`}
+                                >
                                     <div className="relative flex items-center justify-center">
-                                        {isActive && <span className="absolute rounded-full" style={{ inset: '-6px', background: 'oklch(0.68 0.15 237 / 0.15)', filter: 'blur(4px)' }} />}
-                                        <item.icon className="relative h-5 w-5" />
+                                        {isOnThisRoute && <span className="absolute rounded-full" style={{ inset: '-6px', background: 'oklch(0.68 0.15 237 / 0.15)', filter: 'blur(4px)' }} />}
+                                        <item.icon className={`relative h-5 w-5 transition-transform duration-150 ${feedTapped ? 'scale-90' : 'scale-100'}`} />
                                     </div>
                                     <span>{item.label}</span>
-                                </>
-                            )}
-                        </NavLink>
-                    ))}
+                                </button>
+                            );
+                        }
+                        return (
+                            <NavLink
+                                key={item.to}
+                                to={item.to}
+                                onClick={() => setShowMore(false)}
+                                className={({ isActive }) =>
+                                    `flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`
+                                }
+                            >
+                                {({ isActive }) => (
+                                    <>
+                                        <div className="relative flex items-center justify-center">
+                                            {isActive && <span className="absolute rounded-full" style={{ inset: '-6px', background: 'oklch(0.68 0.15 237 / 0.15)', filter: 'blur(4px)' }} />}
+                                            <item.icon className="relative h-5 w-5" />
+                                        </div>
+                                        <span>{item.label}</span>
+                                    </>
+                                )}
+                            </NavLink>
+                        );
+                    })}
 
                     {/* Center: + button → opens drawer */}
                     <div className="relative">

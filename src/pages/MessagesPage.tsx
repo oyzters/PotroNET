@@ -85,6 +85,7 @@ export function MessagesPage() {
     const conversationsRef = useRef<Conversation[]>([]);
 
     const activeUserId = userId ?? null;
+    const chatContainerRef = useRef<HTMLDivElement>(null);
 
     // Mantener ref de conversaciones sincronizada sin recrear fetchMessages
     useEffect(() => {
@@ -205,6 +206,35 @@ export function MessagesPage() {
 
         return () => { supabase.removeChannel(channel); };
     }, [user?.id, fetchConversations]);
+
+    // Visual Viewport: keeps header locked when keyboard opens on iOS
+    useEffect(() => {
+        if (!activeUserId || isDesktop) return;
+
+        const vv = window.visualViewport;
+        if (!vv) return;
+
+        const updateLayout = () => {
+            const el = chatContainerRef.current;
+            if (!el) return;
+            el.style.height = `${vv.height}px`;
+            el.style.top = `${vv.offsetTop}px`;
+        };
+
+        vv.addEventListener('resize', updateLayout);
+        vv.addEventListener('scroll', updateLayout);
+        updateLayout();
+
+        return () => {
+            vv.removeEventListener('resize', updateLayout);
+            vv.removeEventListener('scroll', updateLayout);
+            const el = chatContainerRef.current;
+            if (el) {
+                el.style.height = '';
+                el.style.top = '';
+            }
+        };
+    }, [activeUserId, isDesktop]);
 
     const handleSend = async () => {
         if (!session?.access_token || !activeUserId || !newMessage.trim() || !user?.id) return;
@@ -433,7 +463,11 @@ export function MessagesPage() {
     // Mobile chat view - When specific user is selected
     if (activeUserId && !isDesktop) {
         return (
-            <div className="fixed inset-x-0 top-0 bottom-0 z-[100] flex flex-col bg-background">
+            <div
+                ref={chatContainerRef}
+                className="fixed inset-x-0 top-0 z-[100] flex flex-col bg-background"
+                style={{ height: '100dvh' }}
+            >
                 {/* Header */}
                 <div className="flex items-center justify-between bg-white dark:bg-card px-3 pb-2 border-b border-border shadow-sm shrink-0" style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}>
                     <div className="flex items-center gap-1.5 overflow-hidden">
@@ -603,6 +637,11 @@ export function MessagesPage() {
                                 onChange={handleInputChange}
                                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                                 onClick={() => setShowEmojiPicker(false)}
+                                onFocus={() => {
+                                    setTimeout(() => {
+                                        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                    }, 320);
+                                }}
                                 maxLength={1000}
                                 className="border-0 !bg-transparent shadow-none px-2 focus-visible:ring-0 rounded-none flex-1 h-[50px] text-[15.5px]"
                             />
@@ -633,7 +672,7 @@ export function MessagesPage() {
                         <button className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors" onClick={() => setLightboxSrc(null)}>
                             <XIcon className="h-6 w-6" />
                         </button>
-                        <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-contain select-none" onClick={e => e.stopPropagation()} />
+                        <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-cover select-none" onClick={e => e.stopPropagation()} />
                     </div>
                 )}
             </div>
@@ -841,9 +880,7 @@ export function MessagesPage() {
                         <Link to="/" className="p-2 rounded-full hover:bg-muted text-primary transition-colors">
                             <ArrowLeftIcon className="h-5 w-5" />
                         </Link>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                            <span className="text-sm font-bold text-primary-foreground">P</span>
-                        </div>
+                        <img src="/pwa.png" alt="PotroNET" className="h-8 w-8 rounded-lg object-cover" />
                         <span className="text-lg font-bold">
                             Potro<span className="text-primary">NET</span>
                         </span>
@@ -1248,7 +1285,7 @@ export function MessagesPage() {
                 <button className="absolute top-4 right-4 z-10 p-2 text-white/70 hover:text-white" onClick={() => setLightboxSrc(null)}>
                     <XIcon className="h-6 w-6" />
                 </button>
-                <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-contain select-none" onClick={e => e.stopPropagation()} />
+                <img src={lightboxSrc} alt="" className="max-w-full max-h-full object-cover select-none" onClick={e => e.stopPropagation()} />
             </div>
         )}
         </>

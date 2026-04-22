@@ -82,6 +82,8 @@ export function FeedPage() {
   const nextPageRef = useRef(1);
   const inFlightRef = useRef(false);
   const widgetsFetched = useRef(false);
+  const refreshLockRef = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Fetch one page. Manages the state machine and dedupes concurrent calls.
   const fetchPage = useCallback(
@@ -138,6 +140,32 @@ export function FeedPage() {
     return () => window.removeEventListener('open-create-post', handler);
   }, []);
 
+  const refreshFeed = useCallback(async () => {
+    if (refreshLockRef.current || inFlightRef.current) return;
+    refreshLockRef.current = true;
+    const start = window.scrollY;
+    const duration = 600;
+    const startTime = performance.now();
+    const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      window.scrollTo(0, start * (1 - easeInOutCubic(progress)));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    setRefreshing(true);
+    nextPageRef.current = 1;
+    await fetchPage(1, { append: false });
+    setRefreshing(false);
+    setTimeout(() => { refreshLockRef.current = false; }, 2000);
+  }, [fetchPage]);
+
+  useEffect(() => {
+    window.addEventListener('feed-tab-press', refreshFeed);
+    return () => window.removeEventListener('feed-tab-press', refreshFeed);
+  }, [refreshFeed]);
+
   // Fetch widget data once
   useEffect(() => {
     if (!session?.access_token || widgetsFetched.current) return;
@@ -147,12 +175,23 @@ export function FeedPage() {
       api<{ rankings: any[] }>('/rankings?limit=3', { token: session.access_token }),
       api<{ professors: any[] }>('/professors?sort=rating&limit=3', { token: session.access_token }),
       api<{ offers: any[] }>('/tutoring?limit=3', { token: session.access_token }),
-      api<{ profiles: any[] }>('/profiles?limit=10', { token: session.access_token }),
-    ]).then(([rankRes, profRes, tutRes, profilesRes]) => {
+      api<{ profiles: any[] }>('/profiles?limit=20', { token: session.access_token }),
+      api<{ friends: any[] }>('/friends', { token: session.access_token }),
+    ]).then(([rankRes, profRes, tutRes, profilesRes, friendsRes]) => {
       if (rankRes.status === 'fulfilled') setRankingUsers(rankRes.value.rankings);
       if (profRes.status === 'fulfilled') setProfessors(profRes.value.professors);
       if (tutRes.status === 'fulfilled') setTutoringOffers(tutRes.value.offers);
-      if (profilesRes.status === 'fulfilled') setNewUsers(profilesRes.value.profiles.slice(0, 10));
+      if (profilesRes.status === 'fulfilled') {
+        const friendIds = new Set(
+          friendsRes.status === 'fulfilled'
+            ? (friendsRes.value.friends || []).map((f: any) => f.id)
+            : []
+        );
+        const filtered = profilesRes.value.profiles.filter(
+          p => p.id !== user?.id && !friendIds.has(p.id)
+        );
+        setNewUsers(filtered.slice(0, 10));
+      }
     }).finally(() => setWidgetsLoading(false));
   }, [session?.access_token]);
 
@@ -192,7 +231,7 @@ export function FeedPage() {
         )
       );
     } catch (e) {
-      console.error(e);
+      if (import.meta.env.DEV) console.error(e);
     }
   }, [session?.access_token]);
 
@@ -206,7 +245,7 @@ export function FeedPage() {
       setPublications((prev) => prev.filter((p) => p.id !== publicationId));
       toast.success('Publicación eliminada');
     } catch (e) {
-      console.error(e);
+      if (import.meta.env.DEV) console.error(e);
       toast.error(e instanceof Error ? e.message : 'No se pudo eliminar la publicación');
     }
   }, [session?.access_token, toast]);
@@ -290,6 +329,23 @@ export function FeedPage() {
         </AnimatePresence>,
         document.body
       )}
+
+      {/* Refresh pill */}
+      <AnimatePresence>
+        {refreshing && (
+          <motion.div
+            initial={{ opacity: 0, y: -12, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            className="flex justify-center mb-1 px-4"
+          >
+            <div className="flex items-center justify-center rounded-full bg-foreground/90 p-2 shadow-xl">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-background/30 border-t-background" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Publications */}
       <div className="pb-20">

@@ -35,8 +35,16 @@ export function RegisterPage() {
             return;
         }
 
-        if (password.length < 6) {
-            setError('La contraseña debe tener al menos 6 caracteres');
+        if (password.length < 10) {
+            setError('La contraseña debe tener al menos 10 caracteres');
+            return;
+        }
+        if (!/[A-Z]/.test(password)) {
+            setError('La contraseña debe incluir al menos una letra mayúscula');
+            return;
+        }
+        if (!/[0-9]/.test(password)) {
+            setError('La contraseña debe incluir al menos un número');
             return;
         }
 
@@ -84,9 +92,7 @@ export function RegisterPage() {
             <div className="flex flex-1 items-center justify-center p-4">
                 <Card className="w-full max-w-md">
                     <CardHeader className="text-center">
-                        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/25">
-                            <span className="text-lg font-black text-primary-foreground">P</span>
-                        </div>
+                        <img src="/pwa.png" alt="PotroNET" className="mx-auto mb-4 h-12 w-12 rounded-xl object-cover shadow-lg shadow-primary/25" />
                         <CardTitle className="text-2xl">Crea tu cuenta</CardTitle>
                         <CardDescription>
                             Únete a la comunidad de Potros del ITSON
@@ -149,12 +155,25 @@ export function RegisterPage() {
                                         <Input
                                             id="reg-password"
                                             type="password"
-                                            placeholder="Mínimo 6 caracteres"
+                                            placeholder="Mínimo 10 caracteres"
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                             required
-                                            minLength={6}
+                                            minLength={10}
                                         />
+                                        {password.length > 0 && (
+                                            <ul className="mt-1 space-y-0.5 text-xs">
+                                                <li className={password.length >= 10 ? 'text-green-600' : 'text-muted-foreground'}>
+                                                    {password.length >= 10 ? '✓' : '○'} Mínimo 10 caracteres
+                                                </li>
+                                                <li className={/[A-Z]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}>
+                                                    {/[A-Z]/.test(password) ? '✓' : '○'} Una letra mayúscula
+                                                </li>
+                                                <li className={/[0-9]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}>
+                                                    {/[0-9]/.test(password) ? '✓' : '○'} Un número
+                                                </li>
+                                            </ul>
+                                        )}
                                     </Field>
                                     <Field>
                                         <FieldLabel htmlFor="reg-confirm">Confirmar contraseña</FieldLabel>
