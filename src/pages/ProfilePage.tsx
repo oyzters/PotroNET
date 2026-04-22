@@ -27,6 +27,7 @@ import {
     ClockIcon,
 } from 'lucide-react';
 import { ScheduleView } from '@/components/profile/ScheduleView';
+import { AvatarCropModal } from '@/components/profile/AvatarCropModal';
 import {
     Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -49,29 +50,6 @@ interface Publication {
 interface Subject { id: string; name: string; semester: number; credits: number; career_id: string }
 interface UserSubject { id: string; subject_id: string; status: string; subject: Subject }
 
-// Comprime una imagen usando Canvas API (sin dependencias externas)
-async function compressImage(file: File, maxWidth: number, maxHeight: number, quality = 0.85): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        img.onload = () => {
-            let { width, height } = img;
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            if (ratio < 1) { width = Math.round(width * ratio); height = Math.round(height * ratio); }
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
-            URL.revokeObjectURL(url);
-            canvas.toBlob(blob => {
-                if (blob) resolve(blob);
-                else reject(new Error('Error al comprimir imagen'));
-            }, 'image/webp', quality);
-        };
-        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
-        img.src = url;
-    });
-}
 
 type WallTab = 'grid' | 'info' | 'horario';
 
@@ -123,6 +101,7 @@ export function ProfilePage() {
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const avatarInputRef = useRef<HTMLInputElement>(null);
+    const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
     // Fetch profile
     useEffect(() => {
@@ -288,11 +267,42 @@ export function ProfilePage() {
         }
     };
 
-    // Subir imagen de avatar
-    const handleImageUpload = async (file: File) => {
+    // Subir avatar ya recortado (blob directo del cropper)
+    const handleAvatarUpload = async (blob: Blob) => {
         if (!session?.access_token || !profile) return;
-
         setUploadError('');
+        setUploadingAvatar(true);
+        setCropImageSrc(null);
+        try {
+            const path = `${profile.id}/avatar.webp`;
+            const { error: storageError } = await supabase.storage
+                .from('avatars')
+                .upload(path, blob, { upsert: true, contentType: 'image/webp' });
+
+            if (storageError) throw storageError;
+
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+            const freshUrl = `${publicUrl}?t=${Date.now()}`;
+
+            const updated = await api<{ profile: Profile }>(`/profiles/${profile.id}`, {
+                method: 'PATCH',
+                token: session.access_token,
+                body: JSON.stringify({ avatar_url: freshUrl }),
+            });
+
+            setProfile(updated.profile);
+            refreshProfile();
+        } catch (err) {
+            setUploadError(err instanceof Error ? err.message : 'Error al subir la imagen');
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
+
+    const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = '';
 
         if (!file.type.startsWith('image/')) {
             setUploadError('Solo se permiten imágenes (JPG, PNG, WEBP)');
@@ -303,45 +313,14 @@ export function ProfilePage() {
             return;
         }
 
-        setUploadingAvatar(true);
-
-        try {
-            // Comprimir: avatar 400×400
-            const compressed = await compressImage(file, 400, 400, 0.85);
-
-            // Subir al bucket de Supabase Storage
-            const path = `${profile.id}/avatar.webp`;
-            const { error: storageError } = await supabase.storage
-                .from('avatars')
-                .upload(path, compressed, { upsert: true, contentType: 'image/webp' });
-
-            if (storageError) throw storageError;
-
-            // Obtener URL pública con cache-bust para forzar recarga
-            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-            const freshUrl = `${publicUrl}?t=${Date.now()}`;
-
-            // Guardar URL en el perfil
-            const updated = await api<{ profile: Profile }>(`/profiles/${profile.id}`, {
-                method: 'PATCH',
-                token: session.access_token,
-                body: JSON.stringify({ avatar_url: freshUrl }),
-            });
-
-            setProfile(updated.profile);
-            refreshProfile(); // actualiza avatar en Navbar
-        } catch (err) {
-            setUploadError(err instanceof Error ? err.message : 'Error al subir la imagen');
-        } finally {
-            setUploadingAvatar(false);
-        }
+        // Abrir el modal de recorte
+        const objectUrl = URL.createObjectURL(file);
+        setCropImageSrc(objectUrl);
     };
 
-    const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) handleImageUpload(file);
-        // Limpiar el input para permitir subir el mismo archivo de nuevo
-        e.target.value = '';
+    const handleCropCancel = () => {
+        if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
+        setCropImageSrc(null);
     };
 
     if (loading) return <ProfileSkeleton />;
@@ -364,6 +343,15 @@ export function ProfilePage() {
                 className="hidden"
                 onChange={e => onFileSelected(e)}
             />
+
+            {/* Avatar crop modal */}
+            {cropImageSrc && (
+                <AvatarCropModal
+                    imageSrc={cropImageSrc}
+                    onConfirm={handleAvatarUpload}
+                    onCancel={handleCropCancel}
+                />
+            )}
 
             {/* Avatar expanded overlay */}
             {avatarExpanded && profile.avatar_url && (
