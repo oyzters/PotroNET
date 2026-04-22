@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { useRole } from '@/hooks/useRole';
@@ -112,6 +113,7 @@ export function App() {
                 <NeonBackground />
                 <ToastProvider>
                 <AuthProvider>
+                <SettingsProvider>
                     <Routes>
                         <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
                         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
@@ -151,6 +153,7 @@ export function App() {
                         <Route path="/guidelines" element={<GuidelinesPage />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
+                </SettingsProvider>
                 </AuthProvider>
                 </ToastProvider>
             </ThemeProvider>

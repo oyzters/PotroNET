@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useRole } from '@/hooks/useRole';
-import { api } from '@/lib/api';
+import { useSettings } from '@/contexts/SettingsContext';
 import {
     isPushSupported,
     getPushPermission,
@@ -18,14 +18,8 @@ import {
 import {
     UserIcon, BellIcon, ShieldIcon, PaletteIcon, InfoIcon,
     SunIcon, MoonIcon, MonitorIcon, ChevronRightIcon,
-    ShieldAlertIcon, ExternalLinkIcon, SlidersHorizontalIcon,
+    ShieldAlertIcon, ExternalLinkIcon, SlidersHorizontalIcon, HeartIcon,
 } from 'lucide-react';
-
-interface UserSettings {
-    dm_privacy: 'everyone' | 'followers' | 'friends';
-    theme: 'light' | 'dark' | 'system';
-    push_enabled: boolean;
-}
 
 const DM_LABELS: Record<string, string> = {
     everyone: 'Todos',
@@ -61,8 +55,7 @@ export function SettingsPage() {
     const { session, profile } = useAuth();
     const { toggleTheme, theme: currentTheme } = useTheme();
     const { isModerator, isSudo } = useRole();
-    const [settings, setSettings] = useState<UserSettings | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { settings, settingsLoading, updateSettings } = useSettings();
     const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
     const [pushSubscribed, setPushSubscribed] = useState(false);
     const [pushBusy, setPushBusy] = useState(false);
@@ -71,47 +64,16 @@ export function SettingsPage() {
 
     const token = session?.access_token;
 
-    const fetchSettings = useCallback(async () => {
-        if (!token) return;
-        try {
-            const data = await api<{ settings: UserSettings }>('/settings', { token });
-            setSettings(data.settings);
-        } catch {
-            // silently fail
-        } finally {
-            setLoading(false);
-        }
-    }, [token]);
-
-    useEffect(() => { fetchSettings(); }, [fetchSettings]);
-
     useEffect(() => {
         if (!pushSupported) return;
         setPushPermission(getPushPermission());
         getCurrentSubscription().then((sub) => setPushSubscribed(!!sub));
     }, [pushSupported]);
 
-    const patchSettings = useCallback(async (updates: Partial<UserSettings>) => {
-        if (!token || !settings) return;
-        const optimistic = { ...settings, ...updates };
-        setSettings(optimistic);
-        try {
-            await api('/settings', {
-                method: 'PATCH',
-                token,
-                body: JSON.stringify(updates),
-            });
-        } catch {
-            setSettings(settings); // revert
-        }
-    }, [token, settings]);
-
     const handleThemeChange = (value: string) => {
-        patchSettings({ theme: value as UserSettings['theme'] });
+        updateSettings({ theme: value as 'light' | 'dark' | 'system' });
         const target = value === 'system' ? 'light' : value;
-        if (target !== currentTheme) {
-            toggleTheme();
-        }
+        if (target !== currentTheme) toggleTheme();
     };
 
     const handleTogglePushMaster = async () => {
@@ -122,12 +84,12 @@ export function SettingsPage() {
             if (settings?.push_enabled && pushSubscribed) {
                 await unsubscribeFromPush(token);
                 setPushSubscribed(false);
-                await patchSettings({ push_enabled: false });
+                await updateSettings({ push_enabled: false });
             } else {
                 await subscribeToPush(token);
                 setPushSubscribed(true);
                 setPushPermission(getPushPermission());
-                await patchSettings({ push_enabled: true });
+                await updateSettings({ push_enabled: true });
             }
         } catch (err) {
             setPushError(err instanceof Error ? err.message : 'Error al activar notificaciones');
@@ -136,7 +98,7 @@ export function SettingsPage() {
         }
     };
 
-    if (loading) {
+    if (settingsLoading) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -231,7 +193,7 @@ export function SettingsPage() {
                         <span className="text-sm">Quien puede enviarme mensajes</span>
                         <Select
                             value={settings?.dm_privacy || 'everyone'}
-                            onValueChange={(v) => patchSettings({ dm_privacy: v as UserSettings['dm_privacy'] })}
+                            onValueChange={(v) => updateSettings({ dm_privacy: v as 'everyone' | 'followers' | 'friends' })}
                         >
                             <SelectTrigger className="w-auto">
                                 <SelectValue>{DM_LABELS[settings?.dm_privacy || 'everyone']}</SelectValue>
@@ -242,6 +204,23 @@ export function SettingsPage() {
                                 <SelectItem value="friends">Amigos</SelectItem>
                             </SelectContent>
                         </Select>
+                    </div>
+                </div>
+                <div className="border-t border-border/30 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <HeartIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="min-w-0">
+                                <p className="text-sm">Ver quién dio like a mis publicaciones</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {settings?.show_likes_to_owner !== false ? 'Puedes ver quién dio like' : 'Desactivado'}
+                                </p>
+                            </div>
+                        </div>
+                        <Toggle
+                            active={settings?.show_likes_to_owner !== false}
+                            onClick={() => updateSettings({ show_likes_to_owner: !(settings?.show_likes_to_owner !== false) })}
+                        />
                     </div>
                 </div>
             </section>

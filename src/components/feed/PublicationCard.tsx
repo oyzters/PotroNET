@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRole } from '@/hooks/useRole';
+import { useSettings } from '@/contexts/SettingsContext';
 import { api } from '@/lib/api';
 import { ModerationModal } from '@/components/moderation/ModerationModal';
 import { WarnUserModal } from '@/components/moderation/WarnUserModal';
@@ -15,7 +16,7 @@ import type { ModerationCategory } from '@/components/moderation/ModerationModal
 import {
     HeartIcon, TrashIcon, UserIcon, MessageCircleIcon, SendIcon,
     MoreHorizontalIcon, XIcon, ClipboardIcon, FlagIcon, ChevronLeftIcon, ChevronRightIcon,
-    ShieldIcon, ShieldAlertIcon, AlertTriangleIcon,
+    ShieldIcon, ShieldAlertIcon, AlertTriangleIcon, UsersIcon, PencilIcon,
 } from 'lucide-react';
 import { FeedVideo } from './FeedVideo';
 
@@ -45,6 +46,8 @@ interface Publication {
     likes_count: number;
     comments_count?: number;
     created_at: string;
+    updated_at?: string;
+    is_edited?: boolean;
     author: Author;
     user_liked?: boolean;
     image_url?: string;
@@ -80,8 +83,10 @@ function PublicationCardInner({
 }: PublicationCardProps) {
     const { session } = useAuth();
     const { isModerator, canBan } = useRole();
+    const { settings } = useSettings();
     const { author } = publication;
     const isOwner = currentUserId === author.id;
+    const canViewLikers = isOwner && settings?.show_likes_to_owner !== false;
 
     // Moderation modals
     const [showOptions, setShowOptions] = useState(false);
@@ -132,6 +137,22 @@ function PublicationCardInner({
     const [likesCount, setLikesCount] = useState(publication.likes_count);
     const [liking, setLiking] = useState(false);
 
+    // Edit modal
+    const [showEdit, setShowEdit] = useState(false);
+    const [editContent, setEditContent] = useState(publication.content);
+    const [editSaving, setEditSaving] = useState(false);
+    const [editError, setEditError] = useState('');
+    const [localContent, setLocalContent] = useState(publication.content);
+    const [isEdited, setIsEdited] = useState(!!publication.is_edited);
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const isEditable = isOwner && (Date.now() - new Date(publication.created_at).getTime()) < ONE_HOUR_MS;
+
+    // Likers modal
+    const [showLikers, setShowLikers] = useState(false);
+    const [likers, setLikers] = useState<{ id: string; full_name: string; avatar_url: string }[]>([]);
+    const [likersLoading, setLikersLoading] = useState(false);
+    const [likersTotal, setLikersTotal] = useState(0);
+
     const handleToggleLike = async () => {
         if (liking) return;
         setLiking(true);
@@ -150,6 +171,40 @@ function PublicationCardInner({
         }
     };
 
+    const handleOpenLikers = async () => {
+        if (!session?.access_token || !canViewLikers || likesCount === 0) return;
+        setShowLikers(true);
+        if (likers.length > 0) return;
+        setLikersLoading(true);
+        try {
+            const data = await api<{ likers: { id: string; full_name: string; avatar_url: string }[]; pagination: { total: number } }>(
+                `/publications/${publication.id}/likes`,
+                { token: session.access_token }
+            );
+            setLikers(data.likers);
+            setLikersTotal(data.pagination.total);
+        } catch { /* silent */ } finally { setLikersLoading(false); }
+    };
+
+    const handleSaveEdit = async () => {
+        if (!session?.access_token || !editContent.trim()) return;
+        setEditSaving(true);
+        setEditError('');
+        try {
+            const data = await api<{ publication: Publication }>(
+                `/publications/${publication.id}`,
+                { method: 'PATCH', token: session.access_token, body: JSON.stringify({ content: editContent.trim() }) }
+            );
+            setLocalContent(data.publication.content);
+            setIsEdited(true);
+            setShowEdit(false);
+        } catch (e: any) {
+            setEditError(e.message || 'Error al guardar');
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
     // Report
     const handleReport = async () => {
         if (!session?.access_token) return;
@@ -164,7 +219,7 @@ function PublicationCardInner({
 
     // Comments
     const [showComments, setShowComments] = useState(false);
-    useBodyScrollLock(showComments || showOptions);
+    useBodyScrollLock(showComments || showOptions || showLikers || showEdit);
     const [comments, setComments] = useState<Comment[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);
     const [commentText, setCommentText] = useState('');
@@ -358,8 +413,11 @@ function PublicationCardInner({
             {/* Content */}
             <div className="px-4 md:px-0">
                 <p className="whitespace-pre-wrap text-[14px] leading-[1.5] text-foreground">
-                    {publication.content}
+                    {localContent}
                 </p>
+                {isEdited && (
+                    <span className="text-[11px] text-muted-foreground/60 mt-0.5 block">editado</span>
+                )}
                 {publication.tags.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                         {publication.tags.map((tag) => (
@@ -386,7 +444,16 @@ function PublicationCardInner({
                 {(likesCount > 0 || localCommentsCount > 0) && (
                     <div className="flex items-center gap-3 text-[13px] mt-0.5">
                         {likesCount > 0 && (
-                            <span className="font-semibold">{likesCount} {likesCount === 1 ? 'like' : 'likes'}</span>
+                            canViewLikers ? (
+                                <button
+                                    onClick={handleOpenLikers}
+                                    className="font-semibold hover:underline transition-colors"
+                                >
+                                    {likesCount} {likesCount === 1 ? 'like' : 'likes'}
+                                </button>
+                            ) : (
+                                <span className="font-semibold">{likesCount} {likesCount === 1 ? 'like' : 'likes'}</span>
+                            )
                         )}
                         {localCommentsCount > 0 && (
                             <button
@@ -436,6 +503,108 @@ function PublicationCardInner({
                     </div>
                 )}
             </div>
+
+            {/* Edit modal */}
+            {showEdit && (
+                <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center" onClick={() => !editSaving && setShowEdit(false)}>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div
+                        className="relative w-full md:max-w-lg md:rounded-2xl rounded-t-2xl bg-background border border-border overflow-hidden animate-in slide-in-from-bottom duration-200 flex flex-col"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex justify-center pt-3 pb-1 md:hidden">
+                            <div className="w-10 h-1 rounded-full bg-border" />
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+                            <h3 className="text-sm font-bold">Editar publicación</h3>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setShowEdit(false)} disabled={editSaving}>
+                                <XIcon className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="px-4 py-3 space-y-3">
+                            <textarea
+                                value={editContent}
+                                onChange={e => setEditContent(e.target.value)}
+                                maxLength={500}
+                                rows={4}
+                                disabled={editSaving}
+                                className="w-full resize-none rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                                autoFocus
+                            />
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">{editContent.length}/500</span>
+                                {editError && <span className="text-xs text-destructive">{editError}</span>}
+                            </div>
+                        </div>
+                        <div className="px-4 pb-4 flex gap-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+                            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowEdit(false)} disabled={editSaving}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                className="flex-1 rounded-xl"
+                                onClick={handleSaveEdit}
+                                disabled={editSaving || !editContent.trim() || editContent.trim() === localContent.trim()}
+                            >
+                                {editSaving
+                                    ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                    : 'Guardar'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Likers modal */}
+            {showLikers && (
+                <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center" onClick={() => setShowLikers(false)}>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div
+                        className="relative w-full md:max-w-lg md:rounded-2xl rounded-t-2xl bg-background border border-border overflow-hidden animate-in slide-in-from-bottom duration-200 flex flex-col"
+                        style={{ maxHeight: '75vh' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex justify-center pt-3 pb-1 md:hidden">
+                            <div className="w-10 h-1 rounded-full bg-border" />
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+                            <h3 className="text-sm font-bold">
+                                {likersTotal > 0 ? `${likersTotal} ${likersTotal === 1 ? 'like' : 'likes'}` : 'Les gustó'}
+                            </h3>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setShowLikers(false)}>
+                                <XIcon className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                            {likersLoading ? (
+                                <div className="flex justify-center py-8">
+                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                </div>
+                            ) : likers.length > 0 ? (
+                                likers.map(liker => (
+                                    <Link
+                                        key={liker.id}
+                                        to={`/profile/${liker.id}`}
+                                        className="flex items-center gap-3 hover:bg-muted/40 -mx-2 px-2 py-1.5 rounded-xl transition-colors"
+                                        onClick={() => setShowLikers(false)}
+                                    >
+                                        <div className="h-9 w-9 rounded-full bg-primary/10 overflow-hidden shrink-0 flex items-center justify-center">
+                                            {liker.avatar_url
+                                                ? <img src={liker.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                                                : <UserIcon className="h-4 w-4 text-primary" />}
+                                        </div>
+                                        <span className="text-[14px] font-medium">{liker.full_name}</span>
+                                    </Link>
+                                ))
+                            ) : (
+                                <div className="text-center py-8">
+                                    <UsersIcon className="mx-auto h-10 w-10 text-muted-foreground/20 mb-2" />
+                                    <p className="text-sm text-muted-foreground">Nadie ha dado like aún.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Comments modal */}
             {showComments && (
@@ -590,6 +759,11 @@ function PublicationCardInner({
                             {!isOwner && (
                                 <button onClick={() => { setShowOptions(false); handleReport(); }} className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted font-semibold text-[15px] transition-colors text-left text-foreground active:scale-[0.98]">
                                     <FlagIcon className="h-5 w-5 text-muted-foreground" /> Reportar publicación
+                                </button>
+                            )}
+                            {isOwner && isEditable && (
+                                <button onClick={() => { setShowOptions(false); setEditContent(localContent); setEditError(''); setShowEdit(true); }} className="flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted font-semibold text-[15px] transition-colors text-left text-foreground active:scale-[0.98]">
+                                    <PencilIcon className="h-5 w-5 text-muted-foreground" /> Editar publicación
                                 </button>
                             )}
                             {isOwner && (
