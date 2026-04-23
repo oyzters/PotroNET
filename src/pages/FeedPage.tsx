@@ -125,13 +125,15 @@ export function FeedPage() {
     fetchPage(nextPageRef.current, { append: nextPageRef.current > 1 });
   }, [fetchPage]);
 
-  // Initial load
+  // Initial load — depends on user?.id, not access_token.
+  // Token refreshes every ~50 min (Supabase TOKEN_REFRESHED) which would change
+  // access_token and retrigger this effect, resetting the entire feed scroll position.
   useEffect(() => {
     if (!session?.access_token) return;
     nextPageRef.current = 1;
     fetchPage(1, { append: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.access_token]);
+  }, [user?.id]);
 
   // Listen for the custom event fired by BottomNavigation to open the create-post modal
   useEffect(() => {

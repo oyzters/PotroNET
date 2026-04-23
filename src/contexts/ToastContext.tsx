@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CheckCircleIcon, XCircleIcon, InfoIcon, AlertTriangleIcon, XIcon } from 'lucide-react';
 
 type ToastKind = 'success' | 'error' | 'info' | 'warning';
@@ -48,13 +48,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         window.setTimeout(() => dismiss(id), 4500);
     }, [dismiss]);
 
-    const value: ToastContextType = {
+    const value = useMemo<ToastContextType>(() => ({
         show,
         success: (m) => show(m, 'success'),
         error: (m) => show(m, 'error'),
         info: (m) => show(m, 'info'),
         warning: (m) => show(m, 'warning'),
-    };
+    }), [show]);
 
     return (
         <ToastContext.Provider value={value}>
