@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -86,6 +87,9 @@ export function MessagesPage() {
 
     const activeUserId = userId ?? null;
     const chatContainerRef = useRef<HTMLDivElement>(null);
+
+    // Lock body scroll on iOS while chat is open — prevents vv.offsetTop from drifting
+    useBodyScrollLock(!!activeUserId && !isDesktop);
 
     // Mantener ref de conversaciones sincronizada sin recrear fetchMessages
     useEffect(() => {
@@ -207,7 +211,7 @@ export function MessagesPage() {
         return () => { supabase.removeChannel(channel); };
     }, [user?.id, fetchConversations]);
 
-    // Visual Viewport: keeps header locked when keyboard opens on iOS
+    // Visual Viewport: resize container when keyboard opens on iOS (only track height, not top)
     useEffect(() => {
         if (!activeUserId || isDesktop) return;
 
@@ -218,21 +222,15 @@ export function MessagesPage() {
             const el = chatContainerRef.current;
             if (!el) return;
             el.style.height = `${vv.height}px`;
-            el.style.top = `${vv.offsetTop}px`;
         };
 
         vv.addEventListener('resize', updateLayout);
-        vv.addEventListener('scroll', updateLayout);
         updateLayout();
 
         return () => {
             vv.removeEventListener('resize', updateLayout);
-            vv.removeEventListener('scroll', updateLayout);
             const el = chatContainerRef.current;
-            if (el) {
-                el.style.height = '';
-                el.style.top = '';
-            }
+            if (el) el.style.height = '';
         };
     }, [activeUserId, isDesktop]);
 
