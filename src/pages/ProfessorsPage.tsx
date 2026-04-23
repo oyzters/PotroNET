@@ -214,7 +214,7 @@ export function ProfessorsPage() {
                             <select
                                 value={careerId}
                                 onChange={(e) => { setCareerId(e.target.value); setPage(1); }}
-                                className="rounded-xl border border-border/50 bg-background px-3 py-2 text-sm"
+                                className="flex-1 min-w-0 rounded-xl border border-border/50 bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">Todas las carreras</option>
                                 {careers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -222,7 +222,7 @@ export function ProfessorsPage() {
                             <select
                                 value={sort}
                                 onChange={(e) => { setSort(e.target.value); setPage(1); }}
-                                className="rounded-xl border border-border/50 bg-background px-3 py-2 text-sm"
+                                className="flex-1 min-w-0 rounded-xl border border-border/50 bg-background px-3 py-2 text-sm"
                             >
                                 <option value="rating">Mejor calificación</option>
                                 <option value="reviews">Más evaluaciones</option>
