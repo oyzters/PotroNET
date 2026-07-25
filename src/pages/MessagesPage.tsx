@@ -18,20 +18,22 @@ import {
 
 // Hook para detectar tamaño de pantalla
 function useMediaQuery(query: string): boolean {
-    const [matches, setMatches] = useState(false);
+    const [matches, setMatches] = useState(() =>
+        typeof window !== 'undefined' ? window.matchMedia(query).matches : false
+    );
 
     useEffect(() => {
         const media = window.matchMedia(query);
-        if (media.matches !== matches) {
-            setMatches(media.matches);
-        }
-        const listener = () => setMatches(media.matches);
+        setMatches(media.matches);
+        // Use event object to avoid stale closure (and to prevent infinite re-registration)
+        const listener = (e: MediaQueryListEvent) => setMatches(e.matches);
         media.addEventListener('change', listener);
         return () => media.removeEventListener('change', listener);
-    }, [matches, query]);
+    }, [query]); // ← `matches` removed: was causing infinite re-subscription on resize
 
     return matches;
 }
+
 
 interface ConversationUser { id: string; full_name: string; avatar_url: string; email: string }
 interface LastMessage { content: string; created_at: string; sender_id: string; is_read?: boolean }
@@ -43,7 +45,7 @@ const MEDIA_PREVIEW_RE = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|mp4|webm)(\?.*)
 const VIDEO_PREVIEW_RE = /\.(mp4|webm)(\?.*)?$/i;
 function formatMsgPreview(content: string | null | undefined): string {
     if (!content) return '';
-    if (MEDIA_PREVIEW_RE.test(content)) return VIDEO_PREVIEW_RE.test(content) ? '🎥 Video' : '📷 Foto';
+    if (MEDIA_PREVIEW_RE.test(content)) return VIDEO_PREVIEW_RE.test(content) ? 'Video' : 'Foto';
     return content;
 }
 
@@ -344,6 +346,8 @@ export function MessagesPage() {
         }
 
         setUploadingMedia(true);
+        // Declarado fuera del try: el catch lo usa para revertir el optimista
+        let optimisticId: string | null = null;
         try {
             // Compress images client-side (videos upload as-is)
             let payload: Blob = file;
@@ -391,8 +395,9 @@ export function MessagesPage() {
 
             // 3) Send message with public URL as content
             const url = signedData.publicUrl as string;
+            optimisticId = crypto.randomUUID();
             const optimisticMsg: Message = {
-                id: crypto.randomUUID(),
+                id: optimisticId,
                 sender_id: user.id,
                 receiver_id: activeUserId,
                 content: url,
@@ -406,8 +411,8 @@ export function MessagesPage() {
                 body: JSON.stringify({ receiver_id: activeUserId, content: url }),
             });
         } catch {
-            // Remove optimistic if it was added; otherwise noop.
-            setMessages(prev => prev.filter(m => m.content !== '__upload_failed_placeholder__'));
+            // Roll back the optimistic message by its id (not by a placeholder string)
+            if (optimisticId) setMessages(prev => prev.filter(m => m.id !== optimisticId));
         } finally {
             setUploadingMedia(false);
         }
@@ -753,7 +758,7 @@ export function MessagesPage() {
                         <p className="mt-1 text-sm text-muted-foreground">{searchQuery ? 'Intenta con otro nombre' : 'Encuentra a alguien en Búsqueda para enviar un mensaje'}</p>
                     </div>
                 ) : (
-                    <div className="flex-1 overflow-y-auto bg-background">
+                    <div className="flex-1 overflow-y-auto bg-background pb-24 md:pb-4">
                         {requestConvs.length > 0 && (
                             <div className="px-4 py-3 border-b border-border/50">
                                 <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between w-full rounded-xl bg-primary/5 border border-primary/15 px-4 py-3 transition-colors hover:bg-primary/10">

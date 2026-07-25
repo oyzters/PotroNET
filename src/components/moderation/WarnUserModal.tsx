@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { AlertTriangleIcon, XIcon, LoaderIcon } from 'lucide-react';
 import { MODERATION_CATEGORIES, type ModerationCategory } from './ModerationModal';
@@ -32,11 +33,11 @@ export function WarnUserModal({ isOpen, onClose, onConfirm, userName }: WarnUser
         }
     };
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center" onClick={onClose}>
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300" />
             <div
-                className="relative w-full md:max-w-md md:rounded-2xl rounded-t-3xl bg-background border border-border overflow-hidden animate-in slide-in-from-bottom duration-200"
+                className="relative w-full md:max-w-md md:rounded-2xl rounded-t-3xl bg-background border border-border overflow-hidden modal-elastic"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Handle */}
@@ -129,6 +130,7 @@ export function WarnUserModal({ isOpen, onClose, onConfirm, userName }: WarnUser
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

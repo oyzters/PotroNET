@@ -6,7 +6,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-    --background: oklch(1 0 0);
+    --background: oklch(0.985 0.003 240);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.145 0 0);
@@ -29,7 +29,8 @@
     --chart-3: oklch(0.68 0.15 237);
     --chart-4: oklch(0.59 0.14 242);
     --chart-5: oklch(0.50 0.12 243);
-    --radius: 0.625rem;
+    /* P4: radius base aumentado a 1rem (16px) — escala iOS 26/27 */
+    --radius: 1rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.59 0.14 242);
@@ -39,19 +40,51 @@
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
 
+    /* P1: color-scheme + accent-color — controles nativos respetan el tema */
+    color-scheme: light dark;
+    accent-color: oklch(0.59 0.14 242);
+
     /* Neon extra colors */
     --neon-cyan: oklch(0.72 0.18 200);
     --neon-violet: oklch(0.65 0.22 300);
     --neon-rose: oklch(0.70 0.22 0);
 
-    /* Orb opacities for light mode */
-    --orb-opacity: 0.12;
+    /* P2: Blur adaptativo — mobile 14px (rendimiento), desktop 24px (calidad) */
+    --lg-blur: 14px;
+    --lg-saturate: 1.4;
+
+    /* Orb opacities for light mode — P8: más pronunciado en claro */
+    --orb-opacity: 0.38;
     --glass-bg: rgba(255, 255, 255, 0.55);
     --glass-border: rgba(255, 255, 255, 0.70);
+
+    /* Liquid Glass surfaces (light) — over a cool gray canvas the glass pops beautifully */
+    --lg-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.40) 0%, rgba(255, 255, 255, 0.15) 100%);
+    --lg-border: rgba(255, 255, 255, 0.65);
+    --lg-border-hover: oklch(0.68 0.15 237 / 0.45);
+    --lg-sheen: rgba(255, 255, 255, 0.60);
+    --lg-sheen-soft: rgba(255, 255, 255, 0.26);
+    --lg-glare: rgba(255, 255, 255, 0.50);
+    --lg-fallback: rgba(255, 255, 255, 0.94);
+    --lg-shadow: 0 8px 32px oklch(0.30 0.05 250 / 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    --lg-shadow-hover: 0 14px 44px oklch(0.30 0.05 250 / 0.08), 0 0 24px oklch(0.68 0.15 237 / 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+
+    /* Background detailing variables (light) — P8: grid más visible */
+    --grid-color: oklch(0.59 0.14 242 / 0.04);
+    --spotlight-color: oklch(0.72 0.18 200 / 0.20);
+
+    /* ---- Neumorfismo 2026 (light) ----
+       Extruded-from-canvas look: highlight upper-left, shadow lower-right */
+    --nm-bg: oklch(0.962 0.003 240);   /* exactly matches --background so shadows match */
+    --nm-shadow-dark: oklch(0.84 0.008 240 / 0.65);
+    --nm-shadow-light: rgba(255,255,255, 0.90);
+    --nm-shadow: 5px 5px 14px var(--nm-shadow-dark), -5px -5px 14px var(--nm-shadow-light);
+    --nm-shadow-inset: inset 4px 4px 10px var(--nm-shadow-dark), inset -4px -4px 10px var(--nm-shadow-light);
+    --nm-shadow-sm: 3px 3px 8px var(--nm-shadow-dark), -3px -3px 8px var(--nm-shadow-light);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
+    --background: oklch(0.12 0.005 240);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
     --card-foreground: oklch(0.985 0 0);
@@ -83,10 +116,39 @@
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
 
+    /* P1: color-scheme + accent-color dark */
+    color-scheme: dark;
+    accent-color: oklch(0.68 0.15 237);
+
     /* Orb opacities for dark mode */
-    --orb-opacity: 0.08;
+    --orb-opacity: 0.16;
     --glass-bg: rgba(10, 10, 10, 0.45);
     --glass-border: rgba(255, 255, 255, 0.08);
+
+    /* Liquid Glass surfaces (dark) — spec: white gradient 10%→3%,
+       border 15%, neon cyan/violet glow on hover */
+    --lg-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 100%);
+    --lg-border: rgba(255, 255, 255, 0.15);
+    --lg-border-hover: oklch(0.72 0.18 200 / 0.40);
+    --lg-sheen: rgba(255, 255, 255, 0.12);
+    --lg-sheen-soft: rgba(255, 255, 255, 0.07);
+    --lg-glare: rgba(255, 255, 255, 0.14);
+    --lg-fallback: rgba(22, 22, 26, 0.94);
+    --lg-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --lg-shadow-hover: 0 14px 44px rgba(0, 0, 0, 0.45), 0 0 22px oklch(0.72 0.18 200 / 0.22), 0 0 44px oklch(0.65 0.22 300 / 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+
+    /* Background detailing variables (dark) */
+    --grid-color: oklch(0.68 0.15 237 / 0.035);
+    --spotlight-color: oklch(0.65 0.22 300 / 0.08);
+
+    /* ---- Neumorfismo 2026 (dark) ----
+       Dark neumorphism: top-left neon glow, bottom-right deep shadow */
+    --nm-bg: oklch(0.12 0.005 240);
+    --nm-shadow-dark: rgba(0, 0, 0, 0.55);
+    --nm-shadow-light: oklch(0.20 0.012 237 / 0.70);
+    --nm-shadow: 5px 5px 16px var(--nm-shadow-dark), -5px -5px 16px var(--nm-shadow-light);
+    --nm-shadow-inset: inset 4px 4px 12px var(--nm-shadow-dark), inset -4px -4px 12px var(--nm-shadow-light);
+    --nm-shadow-sm: 3px 3px 8px var(--nm-shadow-dark), -3px -3px 8px var(--nm-shadow-light);
 }
 
 @theme inline {
@@ -157,26 +219,77 @@
     overscroll-behavior-y: none;
     /* Smooth momentum scrolling on iOS */
     -webkit-overflow-scrolling: touch;
+
+    /* P3: Antialiasing + Inter OpenType features + escala tipográfica adaptativa */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: clamp(15px, 1.6vw, 17px);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'kern';
+    text-rendering: optimizeLegibility;
+
+    /* Cyber-grid painted on body — NO background-attachment:fixed
+       (breaks iOS Safari). The ambient spotlights live on a ::before
+       with position:fixed so they stay viewport-relative correctly. */
+    background-image:
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 36px 36px;
     }
 }
 
+/* Fixed viewport spotlight (iOS Safari safe — uses a fixed pseudo-element
+   instead of background-attachment:fixed which is broken on WebKit) */
+/* z-index: -1 keeps the spotlight under the app WITHOUT a `body > *` rule:
+   an un-layered rule on body children overrides Tailwind's layered
+   utilities (position: fixed, z-index) and breaks every modal/toast
+   portaled to document.body. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    radial-gradient(ellipse 60% 35% at 50% -5%, var(--spotlight-color) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 30% at 90% 95%, var(--spotlight-color) 0%, transparent 60%);
+}
+
 /* ============================================================
-   ORB ANIMATIONS — slow, subtle circular orbit
+   ORB ANIMATIONS — organic liquid morphing with rotation
    ============================================================ */
-/* Orb 1: breathing pulse, 14s cycles */
-@keyframes orb-float-1 {
-  0%, 100% { transform: translate(0px, 0px) scale(1.00); opacity: 0.7; }
-  50%      { transform: translate(6px, -6px) scale(1.08); opacity: 1.0; }
+@keyframes fluid-morph-1 {
+  0%, 100% {
+    border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+    transform: translate(0px, 0px) rotate(0deg) scale(1);
+  }
+  33% {
+    border-radius: 70% 30% 52% 48% / 60% 40% 60% 40%;
+    transform: translate(3vw, -4vh) rotate(120deg) scale(1.08);
+  }
+  66% {
+    border-radius: 50% 50% 30% 70% / 30% 70% 30% 70%;
+    transform: translate(-3vw, 4vh) rotate(240deg) scale(0.92);
+  }
 }
-/* Orb 2: slightly faster breathing, 18s cycles */
-@keyframes orb-float-2 {
-  0%, 100% { transform: translate(0px, 0px) scale(1.00); opacity: 0.6; }
-  50%      { transform: translate(-6px, 5px) scale(1.06); opacity: 1.0; }
+@keyframes fluid-morph-2 {
+  0%, 100% {
+    border-radius: 70% 30% 52% 48% / 60% 40% 60% 40%;
+    transform: translate(0px, 0px) rotate(0deg) scale(1);
+  }
+  50% {
+    border-radius: 40% 60% 40% 60% / 50% 50% 50% 50%;
+    transform: translate(-4vw, 3vh) rotate(-180deg) scale(1.06);
+  }
 }
-/* Orb 3: softer breathing, 22s cycles */
-@keyframes orb-float-3 {
-  0%, 100% { transform: translate(0px, 0px) scale(1.00); opacity: 0.7; }
-  50%      { transform: translate(3px, 8px) scale(1.05); opacity: 1.0; }
+@keyframes fluid-morph-3 {
+  0%, 100% {
+    border-radius: 50% 50% 30% 70% / 30% 70% 30% 70%;
+    transform: translate(0px, 0px) rotate(0deg) scale(1);
+  }
+  50% {
+    border-radius: 60% 40% 70% 30% / 40% 60% 40% 60%;
+    transform: translate(4vw, -2vh) rotate(180deg) scale(1.05);
+  }
 }
 
 /* ============================================================
@@ -187,6 +300,189 @@
   backdrop-filter: blur(20px) saturate(1.2);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
   border: 1px solid var(--glass-border);
+}
+
+/* ============================================================
+   LIQUID GLASS — translucent refractive surfaces
+   Registered with @utility so responsive variants work (md:liquid-glass).
+   ============================================================ */
+
+/* Base surface.
+   IMPORTANT: the backdrop-filter lives on ::before, NOT on the element.
+   backdrop-filter (like transform/filter) turns the element into the
+   containing block for position:fixed descendants, which would break the
+   fullscreen modals rendered inside PublicationCard (comments, likers,
+   edit, options). The pseudo-element is a child, so fixed children of the
+   card keep the viewport as their containing block. */
+@utility liquid-glass {
+  position: relative;
+  border-radius: 1.5rem;
+  border: 1px solid var(--lg-border);
+  box-shadow: var(--lg-shadow);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    /* P7: Sheen pasivo inclinado — visible en touch sin hover; simula luz ambiental superior-izquierda.
+       En desktop el glare dinámico (::after) lo complementa. */
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.22) 0%,
+        rgba(255, 255, 255, 0.06) 35%,
+        transparent 60%
+      ),
+      linear-gradient(180deg, var(--lg-sheen-soft), transparent 24%),
+      var(--lg-bg);
+    /* P2: blur adaptativo via variable — 14px mobile, 24px desktop */
+    backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+    -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+  }
+
+  /* Dynamic specular glare — tracks the pointer via --glare-x/--glare-y
+     (updated by use3DTilt). Only revealed on hover-capable devices; touch
+     screens keep just the static sheen from ::before. */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(circle at var(--glare-x, 50%) var(--glare-y, -20%), var(--lg-glare), transparent 55%);
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    &:hover::after { opacity: 1; }
+  }
+
+  /* Keep content readable when backdrop-filter isn't supported */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    &::before { background: var(--lg-fallback); }
+  }
+}
+
+/* Hover: neon glow + border refraction only — no transform, so it is safe
+   on elements that contain position:fixed modals (PublicationCard). */
+@utility liquid-glass-hover {
+  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+  @media (hover: hover) {
+    &:hover {
+      border-color: var(--lg-border-hover);
+      box-shadow: var(--lg-shadow-hover);
+    }
+  }
+}
+
+/* Hover lift: adds translateY. transform creates a containing block for
+   fixed descendants — use ONLY on elements without fullscreen modals inside
+   (widget cards, buttons, links). */
+@utility liquid-lift {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-4px);
+      border-color: var(--lg-border-hover);
+      box-shadow: var(--lg-shadow-hover);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    &:hover { transform: none; }
+  }
+}
+
+/* ============================================================
+   NEUMORPHISM — soft extruded / inset controls (Tendencia 2026).
+   For small tactile controls (buttons, pills, fields) sitting on
+   matte surfaces; large translucent surfaces stay liquid-glass.
+   Tokens: --nm-bg / --nm-shadow / --nm-shadow-sm / --nm-shadow-inset.
+   ============================================================ */
+@utility neu-raised {
+  background: var(--nm-bg);
+  box-shadow: var(--nm-shadow);
+}
+@utility neu-raised-sm {
+  background: var(--nm-bg);
+  box-shadow: var(--nm-shadow-sm);
+}
+@utility neu-inset {
+  background: var(--nm-bg);
+  box-shadow: var(--nm-shadow-inset);
+}
+/* Tactile press: the raised control sinks into the surface on tap */
+@utility neu-pressable {
+  transition: box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1), transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  &:active {
+    box-shadow: var(--nm-shadow-inset);
+    transform: scale(0.97);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    &:active { transform: none; }
+  }
+}
+
+.liquid-orbs {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: var(--orb-opacity);
+}
+.liquid-orbs span {
+  position: absolute;
+  will-change: transform, border-radius;
+}
+.liquid-orb-1 {
+  top: -10%; left: -8%;
+  width: 46vw; height: 46vw;
+  min-width: 320px; min-height: 320px;
+  background: radial-gradient(circle, var(--neon-cyan) 0%, transparent 65%);
+  animation: fluid-morph-1 22s ease-in-out infinite;
+}
+.liquid-orb-2 {
+  top: 28%; right: -12%;
+  width: 40vw; height: 40vw;
+  min-width: 280px; min-height: 280px;
+  background: radial-gradient(circle, var(--neon-violet) 0%, transparent 65%);
+  animation: fluid-morph-2 26s ease-in-out infinite;
+}
+.liquid-orb-3 {
+  bottom: -12%; left: 18%;
+  width: 42vw; height: 42vw;
+  min-width: 300px; min-height: 300px;
+  background: radial-gradient(circle, var(--primary) 0%, transparent 65%);
+  animation: fluid-morph-3 30s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .liquid-orbs span { animation: none; }
+}
+
+/* Gooey filter connector — desktop only. The feGaussianBlur+feColorMatrix
+   chain re-rasterizes the whole orb layer on every morph frame, which phone
+   GPUs can't sustain; the orbs' radial gradients already give soft edges. */
+.liquid-gooey { filter: none; }
+@media (min-width: 768px) {
+  .liquid-gooey { filter: url('#liquid-gooey-filter'); }
+}
+
+/* 3D PERSPECTIVE UTILITIES */
+@utility perspective-1000 {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+@utility preserve-3d {
+  transform-style: preserve-3d;
+}
+@utility backface-hidden {
+  backface-visibility: hidden;
 }
 
 /* ============================================================
@@ -255,6 +551,35 @@
   border-color: oklch(0.68 0.15 237 / 0.35);
 }
 
+/* ============================================================
+   ELASTIC 3D MODALS — panels pop out of the glass depth with a
+   springy overshoot. Transform-only: cheap on mobile GPUs.
+   ============================================================ */
+@keyframes modal-elastic-in {
+  0% {
+    opacity: 0;
+    transform: perspective(1000px) translateY(56px) rotateX(7deg) scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: perspective(1000px) translateY(-7px) rotateX(-1.5deg) scale(1.01);
+  }
+  80% {
+    transform: perspective(1000px) translateY(2px) rotateX(0.5deg) scale(0.998);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1000px) translateY(0) rotateX(0) scale(1);
+  }
+}
+.modal-elastic {
+  animation: modal-elastic-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transform-origin: 50% 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-elastic { animation: none; }
+}
+
 /* wave hand animation */
 @keyframes wave {
   0%, 100% { transform: rotate(0deg); }
@@ -308,3 +633,194 @@ button, a, [role="button"], input[type="button"], input[type="submit"] {
 button, [role="button"] {
   -webkit-touch-callout: none;
 }
+
+/* ============================================================
+   MOBILE TOUCH TARGET & PRESS FEEDBACK (Apple HIG: 44×44pt min)
+   ============================================================ */
+
+/* Ensures interactive icon buttons hit 44px minimum — the Apple Human
+   Interface Guidelines minimum for comfortable touch targets. Applies
+   only on pointer-coarse (touch) devices so desktop layout is unaffected. */
+@media (pointer: coarse) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Active press scale — gives native-feel tactile response on tap */
+  button:active:not(:disabled),
+  [role="button"]:active:not([aria-disabled="true"]) {
+    transform: scale(0.97);
+    transition: transform 0.08s ease;
+  }
+
+  /* Soften active scale on small icon-only buttons */
+  .btn-icon:active {
+    transform: scale(0.92);
+  }
+}
+
+/* ============================================================
+   MOBILE CARD DENSITY — tighter padding on small screens
+   Reduces vertical space so more content is visible above the fold
+   ============================================================ */
+@media (max-width: 767px) {
+  /* P4: border-radius mobile — 22px (más orgánico que 18px, menor que desktop 24px) */
+  .liquid-glass {
+    border-radius: 22px;
+  }
+
+  /* Give enough room at the bottom for the 60px bottom nav
+     + safe area (already done with pb-safe-nav on the scroll container,
+     but this catches any loose fixed-bottom items) */
+  .mobile-bottom-safe {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* P2: Desktop — blur completo (calidad sobre rendimiento en GPU dedicada) */
+@media (min-width: 768px) {
+  :root {
+    --lg-blur: 24px;
+    --lg-saturate: 1.6;
+  }
+}
+
+/* Bubble active indicator styles removed */
+
+/* ============================================================
+   P6 — MATERIAL SYSTEM (3 niveles de glass)
+   Thin: tooltips, menús · Regular: cards (liquid-glass) · Thick: sheets, modales
+   ============================================================ */
+
+/* Thin Material — tooltips, menús contextuales, popovers */
+@utility glass-thin {
+  backdrop-filter: blur(8px) saturate(1.2);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  background: oklch(1 0 0 / 0.55);
+  border: 1px solid oklch(1 0 0 / 0.60);
+}
+.dark .glass-thin {
+  background: oklch(0.12 0.005 240 / 0.60);
+  border-color: oklch(1 0 0 / 0.10);
+}
+
+/* Thick Material — sheets de bottom nav, sidebars, overlays de modales */
+@utility glass-thick {
+  backdrop-filter: blur(32px) saturate(1.8);
+  -webkit-backdrop-filter: blur(32px) saturate(1.8);
+  background: oklch(1 0 0 / 0.72);
+  border: 1px solid oklch(1 0 0 / 0.55);
+}
+.dark .glass-thick {
+  background: oklch(0.12 0.005 240 / 0.82);
+  border-color: oklch(1 0 0 / 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-thin, .glass-thick { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* ============================================================
+   P9 — @starting-style ENTRY ANIMATIONS
+   Cards aparecen con fade+slide al navegar (CSS puro, sin JS).
+   Gated behind feature detection — fallback: elementos aparecen
+   instantáneamente (ya funcional sin la feature).
+   ============================================================ */
+@supports (animation-timeline: scroll()) {
+  .liquid-glass {
+    transition:
+      opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @starting-style {
+    .liquid-glass {
+      opacity: 0;
+      transform: translateY(12px) scale(0.985);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .liquid-glass { transition: none; }
+    @starting-style { .liquid-glass { opacity: 1; transform: none; } }
+  }
+}
+
+/* ============================================================
+   P10 — SKELETON SHIMMER
+   Reemplaza el animate-pulse estático de Tailwind con un
+   gradiente deslizante tipo iOS nativo. La clase skeleton-shimmer
+   se aplica en Skeleton.tsx.
+   ============================================================ */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+.skeleton-shimmer {
+  background:
+    linear-gradient(
+      90deg,
+      oklch(0.92 0.003 240) 0%,
+      oklch(0.96 0.003 240) 40%,
+      oklch(0.92 0.003 240) 80%
+    );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+.dark .skeleton-shimmer {
+  background:
+    linear-gradient(
+      90deg,
+      oklch(0.22 0.005 240) 0%,
+      oklch(0.28 0.008 237) 40%,
+      oklch(0.22 0.005 240) 80%
+    );
+  background-size: 200% 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+    background: oklch(0.92 0.003 240);
+  }
+  .dark .skeleton-shimmer {
+    background: oklch(0.22 0.005 240);
+  }
+}
+
+/* ============================================================
+   PROFILE REDESIGN — Liquid Glass Cover & Bento Utilities
+   ============================================================ */
+@utility profile-hero-cover {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 20% 20%, oklch(0.68 0.15 237 / 0.35) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, oklch(0.72 0.18 200 / 0.25) 0%, transparent 60%),
+    linear-gradient(135deg, oklch(0.20 0.01 240 / 0.85) 0%, oklch(0.12 0.005 240 / 0.95) 100%);
+  border-bottom: 1px solid var(--lg-border);
+}
+:root:not(.dark) .profile-hero-cover {
+  background:
+    radial-gradient(ellipse at 20% 20%, oklch(0.68 0.15 237 / 0.20) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, oklch(0.72 0.18 200 / 0.20) 0%, transparent 60%),
+    linear-gradient(135deg, oklch(0.96 0.01 240 / 0.95) 0%, oklch(0.92 0.005 240 / 0.95) 100%);
+}
+
+@utility bento-card-glass {
+  position: relative;
+  border-radius: 1.25rem;
+  border: 1px solid var(--lg-border);
+  background: var(--lg-bg);
+  box-shadow: var(--lg-shadow);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate));
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .bento-card-glass:hover {
+    box-shadow: var(--lg-shadow-hover);
+    transform: translateY(-2px);
+  }
+}
+
+

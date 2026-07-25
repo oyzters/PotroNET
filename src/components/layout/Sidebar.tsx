@@ -64,11 +64,11 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: Sideba
 
             {/* Sidebar */}
             <aside
-                className={`fixed left-0 top-16 z-40 h-dvh-minus-nav ${sidebarWidth} transform border-r transition-all duration-200 ease-in-out md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                className={`fixed left-4 top-[88px] z-40 h-[calc(100dvh-112px)] ${sidebarWidth} transform rounded-2xl border transition-all duration-300 ease-in-out md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'} shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]`}
                 style={{
                     background: 'var(--glass-bg)',
-                    backdropFilter: 'blur(20px) saturate(1.2)',
-                    WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
+                    backdropFilter: 'blur(24px) saturate(1.2)',
+                    WebkitBackdropFilter: 'blur(24px) saturate(1.2)',
                     borderColor: 'var(--glass-border)',
                 }}
             >

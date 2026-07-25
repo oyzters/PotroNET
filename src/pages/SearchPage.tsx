@@ -74,7 +74,7 @@ export function SearchPage() {
             else if (data.professors && data.professors.length > 0) setActiveTab('professors');
             else if (data.tutoring && data.tutoring.length > 0) setActiveTab('tutoring');
         } catch {
-            // Silent error
+            setResults(null); // reset to idle state — do not show "no results" on network error
         } finally {
             setLoading(false);
         }

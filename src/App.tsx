@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -33,6 +34,7 @@ import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
 import { ModerationPage } from '@/pages/ModerationPage';
 import { SudoToolsPage } from '@/pages/SudoToolsPage';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import type { ReactNode } from 'react';
 
 function ScrollToTop() {
@@ -105,6 +107,120 @@ function SudoRoute({ children }: { children: ReactNode }) {
     return <>{children}</>;
 }
 
+/* Orden de tabs principal — define la dirección del slide */
+const TAB_ORDER = ['/feed', '/search', '/messages', '/profile'];
+
+function getTabIndex(pathname: string): number {
+    const exact = TAB_ORDER.findIndex(t => pathname === t);
+    if (exact !== -1) return exact;
+    // sub-rutas heredan dirección del tab padre
+    const parent = TAB_ORDER.findIndex(t => t !== '/' && pathname.startsWith(t));
+    return parent !== -1 ? parent : -1;
+}
+
+function AnimatedRoutes() {
+    const location   = useLocation();
+    const prevPathRef = useRef(location.pathname);
+    const directionRef = useRef(0);
+
+    // useLayoutEffect fires BEFORE paint — we capture the direction from the
+    // PREVIOUS pathname so the exit animation still uses the correct value
+    // even though `location` has already changed by the time exit runs.
+    useEffect(() => {
+        const prev = prevPathRef.current;
+        const curr = location.pathname;
+
+        const prevIdx = getTabIndex(prev);
+        const currIdx = getTabIndex(curr);
+        const isTabNav = prevIdx !== -1 && currIdx !== -1;
+
+        directionRef.current = isTabNav ? Math.sign(currIdx - prevIdx) : 0;
+        prevPathRef.current  = curr;
+    }); // runs on every render — intentional, captures before commit
+
+    const dir  = directionRef.current;
+    const DIST = 32; // px — ligero para no sentirse abrupto
+
+    const variants = {
+        initial: (d: number) => ({
+            opacity: 0,
+            x: d !== 0 ? d * DIST : 0,
+            y: d === 0 ? 8 : 0,
+            scale: d !== 0 ? 0.97 : 1,
+        }),
+        animate: {
+            opacity: 1,
+            x: 0,
+            y: 0,
+            scale: 1,
+        },
+        exit: (d: number) => ({
+            opacity: 0,
+            x: d !== 0 ? -d * DIST : 0,
+            y: d === 0 ? -8 : 0,
+            scale: d !== 0 ? 0.97 : 1,
+        }),
+    };
+
+    return (
+        <AnimatePresence mode="wait" initial={false} custom={dir}>
+            <motion.div
+                key={location.pathname}
+                custom={dir}
+                variants={variants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{
+                    duration: 0.20,
+                    ease: [0.22, 1, 0.36, 1],
+                }}
+                style={{ width: '100%', minHeight: '100dvh' }}
+            >
+                <Routes location={location}>
+                    <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
+                    <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+                    <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+                    <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
+                    <Route path="/verify-email" element={<VerifyEmailPage />} />
+                    <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+                    <Route path="/feed" element={<ProtectedPage noPaddingMobile><FeedPage /></ProtectedPage>} />
+                    <Route path="/profile/:id" element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
+                    <Route path="/search" element={<ProtectedPage><SearchPage /></ProtectedPage>} />
+                    <Route path="/professors" element={<ProtectedPage noPaddingMobile><ProfessorsPage /></ProtectedPage>} />
+                    <Route path="/professors/:id" element={<ProtectedPage><ProfessorDetailPage /></ProtectedPage>} />
+                    <Route path="/tutoring" element={<ProtectedPage><TutoringPage /></ProtectedPage>} />
+                    <Route path="/roadmap" element={<ProtectedPage><RoadmapPage /></ProtectedPage>} />
+                    <Route path="/roadmap/:userId" element={<ProtectedPage><RoadmapPage /></ProtectedPage>} />
+                    <Route path="/friends" element={<ProtectedPage><FriendsPage /></ProtectedPage>} />
+                    <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
+                    <Route path="/messages/:userId" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
+                    <Route path="/notifications" element={<ProtectedPage><NotificationsPage /></ProtectedPage>} />
+                    <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
+                    <Route path="/rankings" element={<ProtectedPage><RankingPage /></ProtectedPage>} />
+                    <Route path="/settings" element={<ProtectedPage><SettingsPage /></ProtectedPage>} />
+                    <Route path="/settings/notifications" element={<ProtectedPage><NotificationSettingsPage /></ProtectedPage>} />
+                    <Route path="/moderation" element={
+                        <ProtectedPage>
+                            <AdminRoute><ModerationPage /></AdminRoute>
+                        </ProtectedPage>
+                    } />
+                    <Route path="/sudo-tools" element={
+                        <ProtectedPage>
+                            <SudoRoute><SudoToolsPage /></SudoRoute>
+                        </ProtectedPage>
+                    } />
+                    <Route path="/terms" element={<TermsPage />} />
+                    <Route path="/privacy" element={<PrivacyPage />} />
+                    <Route path="/guidelines" element={<GuidelinesPage />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </motion.div>
+        </AnimatePresence>
+    );
+}
+
 export function App() {
     return (
         <BrowserRouter>
@@ -114,45 +230,11 @@ export function App() {
                 <ToastProvider>
                 <AuthProvider>
                 <SettingsProvider>
-                    <Routes>
-                        <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
-                        <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-                        <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
-                        <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
-                        <Route path="/reset-password" element={<ResetPasswordPage />} />
-                        <Route path="/verify-email" element={<VerifyEmailPage />} />
-                        <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
-                        <Route path="/feed" element={<ProtectedPage noPaddingMobile><FeedPage /></ProtectedPage>} />
-                        <Route path="/profile/:id" element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
-                        <Route path="/search" element={<ProtectedPage><SearchPage /></ProtectedPage>} />
-                        <Route path="/professors" element={<ProtectedPage noPaddingMobile><ProfessorsPage /></ProtectedPage>} />
-                        <Route path="/professors/:id" element={<ProtectedPage><ProfessorDetailPage /></ProtectedPage>} />
-                        <Route path="/tutoring" element={<ProtectedPage><TutoringPage /></ProtectedPage>} />
-                        <Route path="/roadmap" element={<ProtectedPage><RoadmapPage /></ProtectedPage>} />
-                        <Route path="/roadmap/:userId" element={<ProtectedPage><RoadmapPage /></ProtectedPage>} />
-                        <Route path="/friends" element={<ProtectedPage><FriendsPage /></ProtectedPage>} />
-                        <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
-                        <Route path="/messages/:userId" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
-                        <Route path="/notifications" element={<ProtectedPage><NotificationsPage /></ProtectedPage>} />
-                        <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
-                        <Route path="/rankings" element={<ProtectedPage><RankingPage /></ProtectedPage>} />
-                        <Route path="/settings" element={<ProtectedPage><SettingsPage /></ProtectedPage>} />
-                        <Route path="/settings/notifications" element={<ProtectedPage><NotificationSettingsPage /></ProtectedPage>} />
-                        <Route path="/moderation" element={
-                            <ProtectedPage>
-                                <AdminRoute><ModerationPage /></AdminRoute>
-                            </ProtectedPage>
-                        } />
-                        <Route path="/sudo-tools" element={
-                            <ProtectedPage>
-                                <SudoRoute><SudoToolsPage /></SudoRoute>
-                            </ProtectedPage>
-                        } />
-                        <Route path="/terms" element={<TermsPage />} />
-                        <Route path="/privacy" element={<PrivacyPage />} />
-                        <Route path="/guidelines" element={<GuidelinesPage />} />
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
+                    <AnimatedRoutes />
+                    {/* BottomNavigation vive FUERA del motion.div de transición
+                        para que nunca se desplace con el contenido de la página */}
+                    <BottomNavigation />
+
                 </SettingsProvider>
                 </AuthProvider>
                 </ToastProvider>

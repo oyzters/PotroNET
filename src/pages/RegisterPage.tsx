@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { SunIcon, MoonIcon, ArrowLeftIcon, UserPlusIcon, CheckCircleIcon } from 'lucide-react';
+import { SunIcon, MoonIcon, ArrowLeftIcon, UserPlusIcon, CheckCircleIcon, CheckIcon, CircleIcon } from 'lucide-react';
 
 const ALLOWED_DOMAIN = '@potros.itson.edu.mx';
 
@@ -163,14 +163,14 @@ export function RegisterPage() {
                                         />
                                         {password.length > 0 && (
                                             <ul className="mt-1 space-y-0.5 text-xs">
-                                                <li className={password.length >= 10 ? 'text-green-600' : 'text-muted-foreground'}>
-                                                    {password.length >= 10 ? '✓' : '○'} Mínimo 10 caracteres
+                                                <li className={`flex items-center gap-1.5 ${password.length >= 10 ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                                    {password.length >= 10 ? <CheckIcon className="h-3 w-3" /> : <CircleIcon className="h-2.5 w-2.5" />} Mínimo 10 caracteres
                                                 </li>
-                                                <li className={/[A-Z]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}>
-                                                    {/[A-Z]/.test(password) ? '✓' : '○'} Una letra mayúscula
+                                                <li className={`flex items-center gap-1.5 ${/[A-Z]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                                    {/[A-Z]/.test(password) ? <CheckIcon className="h-3 w-3" /> : <CircleIcon className="h-2.5 w-2.5" />} Una letra mayúscula
                                                 </li>
-                                                <li className={/[0-9]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}>
-                                                    {/[0-9]/.test(password) ? '✓' : '○'} Un número
+                                                <li className={`flex items-center gap-1.5 ${/[0-9]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                                    {/[0-9]/.test(password) ? <CheckIcon className="h-3 w-3" /> : <CircleIcon className="h-2.5 w-2.5" />} Un número
                                                 </li>
                                             </ul>
                                         )}

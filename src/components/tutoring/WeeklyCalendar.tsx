@@ -299,7 +299,7 @@ export function WeeklyCalendar({ blocks, onChange, minDate }: WeeklyCalendarProp
 
             {/* ── Hint ── */}
             <p className="text-xs text-muted-foreground">
-                💡 <strong>Clic y arrastra</strong> hacia abajo en el calendario para crear un bloque horario. Clic en un bloque azul para eliminarlo.
+                <strong>Clic y arrastra</strong> hacia abajo en el calendario para crear un bloque horario. Clic en un bloque azul para eliminarlo.
             </p>
 
             {/* ── Blocks panel ── */}

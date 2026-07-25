@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { api } from "@/lib/api";
@@ -14,13 +14,34 @@ import { StreakCard } from "@/components/feed/StreakCard";
 import { NewUsersCard } from "@/components/feed/NewUsersCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useScrollReveal } from "@/hooks/useScrollReveal";
 
-interface Author {
-  id: string;
-  full_name: string;
-  avatar_url: string;
-  email: string;
-}
+gsap.registerPlugin(ScrollTrigger);
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } }
+};
+
+// Widget data types — matching the props expected by each widget component
+interface RankingUser { id: string; full_name: string; avatar_url: string; popularity_score: number; followers_count: number }
+interface FeedProfessor { id: string; full_name: string; avg_rating: number; total_reviews: number; career?: { id: string; name: string } | null }
+interface FeedTutoringOffer { id: string; subject_name: string; description: string; tutor: { id: string; full_name: string; avatar_url: string } }
+interface FeedNewUser { id: string; full_name: string; avatar_url: string; email: string }
+
+interface Author { id: string; full_name: string; avatar_url: string; email: string }
 
 interface Publication {
   id: string;
@@ -49,7 +70,7 @@ const PAGE_SIZE = 10;
 
 function WidgetSkeleton({ height }: { height: string }) {
   return (
-    <div className={`bg-muted/30 overflow-hidden rounded-none md:rounded-xl border-y md:border border-border/30 my-0 md:my-2`}>
+    <div className={`max-md:bg-muted/30 overflow-hidden max-md:rounded-none max-md:border-y max-md:border-border/30 my-0 md:my-2 md:liquid-glass`}>
       <div className="px-4 py-3">
         <div className="flex items-center gap-2 mb-3">
           <div className="h-4 w-4 rounded bg-muted animate-pulse" />
@@ -59,6 +80,14 @@ function WidgetSkeleton({ height }: { height: string }) {
       </div>
     </div>
   );
+}
+
+// Wraps the interleaved widget cards so they share the same 3D scroll
+// entrance as the publications.
+function Reveal({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useScrollReveal(ref);
+  return <div ref={ref}>{children}</div>;
 }
 
 type FeedStatus = 'loading' | 'idle' | 'fetching-more' | 'error' | 'exhausted';
@@ -71,11 +100,26 @@ export function FeedPage() {
   const [publications, setPublications] = useState<Publication[]>([]);
   const [status, setStatus] = useState<FeedStatus>('loading');
 
+  // GSAP 3D Scroll Scrollytelling refs
+  const heroRef = useRef<HTMLDivElement>(null);
+  const card3DRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  // Time-aware greeting (Tendencia 2026: UX personalizada)
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h >= 6 && h < 12)  return 'Buenos días';
+    if (h >= 12 && h < 18) return 'Buenas tardes';
+    if (h >= 18 && h < 24) return 'Buenas noches';
+    return 'Hola';
+  };
+  const greeting = getGreeting();
+
   // Widget data
-  const [rankingUsers, setRankingUsers] = useState<any[]>([]);
-  const [professors, setProfessors] = useState<any[]>([]);
-  const [tutoringOffers, setTutoringOffers] = useState<any[]>([]);
-  const [newUsers, setNewUsers] = useState<any[]>([]);
+  const [rankingUsers, setRankingUsers] = useState<RankingUser[]>([]);
+  const [professors, setProfessors] = useState<FeedProfessor[]>([]);
+  const [tutoringOffers, setTutoringOffers] = useState<FeedTutoringOffer[]>([]);
+  const [newUsers, setNewUsers] = useState<FeedNewUser[]>([]);
   const [widgetsLoading, setWidgetsLoading] = useState(true);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -83,6 +127,68 @@ export function FeedPage() {
   const inFlightRef = useRef(false);
   const widgetsFetched = useRef(false);
   const refreshLockRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Mobile keeps only transform/opacity: animating `filter` (re-raster)
+    // or `font-variation-settings` (reflow) on every scroll frame is too
+    // costly on phone GPUs.
+    const mm = gsap.matchMedia();
+    mm.add(
+      {
+        desktop: '(min-width: 768px)',
+        mobile: '(max-width: 767.98px)',
+        noMotion: '(prefers-reduced-motion: reduce)',
+      },
+      (ctx) => {
+        if (ctx.conditions?.noMotion) return;
+        const desktop = !!ctx.conditions?.desktop;
+
+        // 3D card fold on scroll
+        gsap.fromTo(card3DRef.current,
+          {
+            transformOrigin: "top center",
+            rotateX: 0,
+            z: 0,
+            opacity: 1,
+          },
+          {
+            rotateX: -12,
+            z: -65,
+            opacity: 0.15,
+            ...(desktop ? { filter: "blur(2px)" } : {}),
+            ease: "none",
+            scrollTrigger: {
+              trigger: heroRef.current,
+              start: desktop ? "top 80px" : "top top",
+              end: desktop ? "bottom 120px" : "bottom top",
+              scrub: true,
+            }
+          }
+        );
+
+        // Variable font weight animation (Tendencia 2026: tipograf\u00eda viva)
+        if (desktop && titleRef.current) {
+          gsap.fromTo(titleRef.current,
+            { fontVariationSettings: '"wght" 400' },
+            {
+              fontVariationSettings: '"wght" 900',
+              ease: "power2.out",
+              scrollTrigger: {
+                trigger: heroRef.current,
+                start: "top 90%",
+                end: "top 20%",
+                scrub: 0.6,
+              }
+            }
+          );
+        }
+      }
+    );
+
+    return () => mm.revert();
+  }, []);
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch one page. Manages the state machine and dedupes concurrent calls.
@@ -265,27 +371,51 @@ export function FeedPage() {
 
   return (
     <div className="w-full">
-      {/* Welcome header */}
-      <div className="relative overflow-hidden px-4 pt-6 pb-5">
-        <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-primary/5 blur-3xl" />
-        <div className="relative">
-          <div className="flex items-center justify-between">
-            <h1 className="text-[22px] font-black leading-tight">
-              Hola, <span className="bg-gradient-to-r from-primary to-[oklch(0.75_0.14_233)] bg-clip-text text-transparent">{profile?.full_name?.split(' ')[0] || 'Potro'}</span>
-            </h1>
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] font-medium text-primary shrink-0">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              Tu comunidad al día
+      {/* 3D Scrollytelling Hero Container */}
+      <div ref={heroRef} className="perspective-1000 w-full mb-6">
+        <div ref={card3DRef} className="preserve-3d space-y-4 will-change-transform">
+          {/* Welcome header */}
+          <div className="relative overflow-hidden px-4 pt-6 pb-5 md:liquid-glass md:px-6">
+            <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-primary/3 blur-xl" />
+            <div className="relative">
+              <div className="flex items-center justify-between">
+                <h1 ref={titleRef} className="text-[22px] leading-tight" style={{ fontVariationSettings: '"wght" 400' }}>
+                  {greeting},{' '}
+                  <span className="bg-gradient-to-r from-primary to-[oklch(0.75_0.14_233)] bg-clip-text text-transparent">{profile?.full_name?.split(' ')[0] || 'Potro'}</span>
+                </h1>
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] font-medium text-primary shrink-0">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                  Tu comunidad al día
+                </div>
+              </div>
+              <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">Descubre publicaciones, rankings y novedades</p>
+            </div>
+
+            {/* Mobile-only: tap to create post CTA — compact, glass-style */}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="md:hidden mt-4 w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left neu-raised neu-pressable"
+            >
+              <div className="h-8 w-8 rounded-full overflow-hidden ring-1 ring-border/40 shrink-0">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-xs font-bold text-primary">{profile?.full_name?.[0] ?? '?'}</span>
+                  </div>
+                )}
+              </div>
+              <span className="flex-1 text-sm text-muted-foreground">¿Qué quieres compartir?</span>
+              <span className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold text-primary-foreground" style={{ background: 'oklch(0.68 0.15 237)', boxShadow: '0 4px 12px oklch(0.68 0.15 237 / 0.35)' }}>Publicar</span>
+            </button>
+          </div>
+
+          {/* Desktop Create Post */}
+          <div className="hidden md:block">
+            <div className="w-full md:max-w-4xl md:mx-auto md:liquid-glass md:p-5">
+              <CreatePost onPost={handleNewPost} />
             </div>
           </div>
-          <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">Descubre publicaciones, rankings y novedades</p>
-        </div>
-      </div>
-
-      {/* Desktop Create Post */}
-      <div className="hidden md:block px-2 md:px-8 pb-2">
-        <div className="w-full md:max-w-4xl md:mx-auto">
-          <CreatePost onPost={handleNewPost} />
         </div>
       </div>
 
@@ -302,11 +432,19 @@ export function FeedPage() {
                 className="md:hidden fixed inset-0 z-[150] bg-background/80 backdrop-blur-sm"
               />
               <motion.div
-                initial={{ y: "100%" }}
-                animate={{ y: 0 }}
+                initial={{ y: "100%", rotateX: 8 }}
+                animate={{ y: 0, rotateX: 0 }}
                 exit={{ y: "100%" }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="md:hidden fixed inset-x-0 bottom-0 z-[200] bg-background border-t border-border/50 rounded-t-3xl shadow-2xl overflow-hidden pb-safe max-h-[90vh] flex flex-col"
+                transition={{ type: "spring", damping: 22, stiffness: 260, mass: 0.9 }}
+                className="md:hidden fixed inset-x-0 bottom-0 z-[200] border-t rounded-t-3xl shadow-2xl overflow-hidden pb-safe max-h-[90vh] flex flex-col"
+                style={{
+                  background: 'var(--glass-bg)',
+                  backdropFilter: 'blur(32px) saturate(1.5)',
+                  WebkitBackdropFilter: 'blur(32px) saturate(1.5)',
+                  borderColor: 'var(--glass-border)',
+                  transformPerspective: 1200,
+                  transformOrigin: 'bottom center',
+                }}
               >
                 <div className="w-full flex justify-center pt-3 pb-2" onClick={() => setShowCreateModal(false)}>
                   <div className="w-12 h-1.5 bg-muted rounded-full" />
@@ -359,9 +497,14 @@ export function FeedPage() {
             <p className="text-muted-foreground">No hay publicaciones aún</p>
           </div>
         ) : (
-          <>
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="space-y-4"
+          >
             {publications.map((publication, idx) => (
-              <div key={publication.id}>
+              <motion.div key={publication.id} variants={itemVariants} className="space-y-4">
                 <PublicationCard
                   publication={publication}
                   currentUserId={user?.id}
@@ -372,47 +515,47 @@ export function FeedPage() {
                 {idx === 1 && (widgetsLoading ? (
                   <WidgetSkeleton height="h-28" />
                 ) : newUsers.length > 0 ? (
-                  <NewUsersCard users={newUsers} />
+                  <Reveal><NewUsersCard users={newUsers} /></Reveal>
                 ) : null)}
                 {idx === 2 && (widgetsLoading ? (
                   <WidgetSkeleton height="h-40" />
                 ) : rankingUsers.length > 0 ? (
-                  <RankingCard users={rankingUsers} />
+                  <Reveal><RankingCard users={rankingUsers} /></Reveal>
                 ) : null)}
                 {idx === 5 && (widgetsLoading ? (
                   <WidgetSkeleton height="h-44" />
                 ) : professors.length > 0 ? (
-                  <ProfessorSuggestionCard professors={professors} />
+                  <Reveal><ProfessorSuggestionCard professors={professors} /></Reveal>
                 ) : null)}
                 {idx === 9 && (widgetsLoading ? (
                   <WidgetSkeleton height="h-40" />
                 ) : tutoringOffers.length > 0 ? (
-                  <TutoringCard offers={tutoringOffers} />
+                  <Reveal><TutoringCard offers={tutoringOffers} /></Reveal>
                 ) : null)}
                 {idx === 13 && profile && (
-                  <StreakCard reputation={profile.reputation || 0} fullName={profile.full_name || ''} />
+                  <Reveal><StreakCard reputation={profile.reputation || 0} fullName={profile.full_name || ''} /></Reveal>
                 )}
-              </div>
+              </motion.div>
             ))}
-
             {/* Sentinel for infinite scroll */}
             <div ref={sentinelRef} className="py-6 text-center min-h-[1px]">
               {status === 'fetching-more' && (
                 <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-primary border-t-transparent mx-auto" />
               )}
-              {status === 'error' && (
-                <div className="flex flex-col items-center gap-2">
-                  <p className="text-xs text-muted-foreground">No se pudieron cargar más publicaciones</p>
-                  <Button variant="outline" size="sm" onClick={loadNext}>
-                    Reintentar
-                  </Button>
-                </div>
-              )}
-              {status === 'exhausted' && publications.length > 0 && (
-                <p className="text-xs text-muted-foreground">Has visto todas las publicaciones</p>
-              )}
             </div>
-          </>
+
+            {status === 'error' && (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <p className="text-xs text-muted-foreground">No se pudieron cargar más publicaciones</p>
+                <Button variant="outline" size="sm" onClick={loadNext}>
+                  Reintentar
+                </Button>
+              </div>
+            )}
+            {status === 'exhausted' && publications.length > 0 && (
+              <p className="text-center text-xs text-muted-foreground py-6">Has visto todas las publicaciones</p>
+            )}
+          </motion.div>
         )}
       </div>
     </div>
