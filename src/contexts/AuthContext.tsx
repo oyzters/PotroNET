@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
 import type { Session, User } from '@supabase/supabase-js';
@@ -40,15 +40,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchProfile = async (accessToken: string) => {
+    // Supabase repite eventos de auth (INITIAL_SESSION, SIGNED_IN al enfocar
+    // la ventana, TOKEN_REFRESHED); sin dedupe cada evento golpea /auth/me y
+    // dispara el rate limit del API (429).
+    const profileUserIdRef = useRef<string | null>(null);
+    const fetchInFlightRef = useRef(false);
+
+    const fetchProfile = async (accessToken: string, userId?: string, force = false) => {
+        if (fetchInFlightRef.current) return;
+        if (!force && userId && profileUserIdRef.current === userId) return;
+        fetchInFlightRef.current = true;
         try {
             const data = await api<{ user: Profile }>('/auth/me', {
                 token: accessToken,
             });
             setProfile(data.user);
+            profileUserIdRef.current = data.user.id;
         } catch (err) {
             if (import.meta.env.DEV) console.error('[AuthContext] fetchProfile failed:', err);
-            setProfile(null);
+            // Error transitorio (rate limit, sin red): conservar el perfil ya
+            // cargado; solo el cierre de sesión lo limpia.
+        } finally {
+            fetchInFlightRef.current = false;
         }
     };
 
@@ -57,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.access_token) {
-                await fetchProfile(session.access_token);
+                await fetchProfile(session.access_token, session.user?.id);
             }
             setLoading(false);
         });
@@ -67,9 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSession(session);
                 setUser(session?.user ?? null);
                 if (session?.access_token) {
-                    fetchProfile(session.access_token);
+                    fetchProfile(session.access_token, session.user?.id);
                 } else {
                     setProfile(null);
+                    profileUserIdRef.current = null;
                 }
             }
         );
@@ -116,11 +130,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = async () => {
         await supabase.auth.signOut();
         setProfile(null);
+        profileUserIdRef.current = null;
     };
 
     const refreshProfile = async () => {
         if (session?.access_token) {
-            await fetchProfile(session.access_token);
+            await fetchProfile(session.access_token, session.user?.id, true);
         }
     };
 

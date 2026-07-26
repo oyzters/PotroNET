@@ -16,6 +16,46 @@ interface FollowUser {
 
 type Tab = 'friends' | 'followers' | 'following';
 
+function UserCard({
+    user,
+    currentUserId,
+    iFollow,
+    onFollow,
+    onUnfollow,
+}: {
+    user: FollowUser;
+    currentUserId?: string;
+    iFollow: boolean;
+    onFollow: (id: string) => void;
+    onUnfollow: (id: string) => void;
+}) {
+    const isMe = user.id === currentUserId;
+    return (
+        <div className="flex items-center gap-3 py-2.5 px-1">
+            <Link to={`/profile/${user.id}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                {user.avatar_url ? <img src={user.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover" /> : <UserIcon className="h-5 w-5 text-primary" />}
+            </Link>
+            <div className="flex-1 min-w-0">
+                <Link to={`/profile/${user.id}`} className="text-[13px] font-semibold hover:text-primary truncate block">{user.full_name}</Link>
+                {user.career && <p className="text-[11px] text-muted-foreground truncate">{user.career.name}</p>}
+            </div>
+            {!isMe && (
+                <div className="shrink-0">
+                    {iFollow ? (
+                        <Button variant="outline" size="sm" className="text-[11px] h-7 px-3 rounded-lg" onClick={() => onUnfollow(user.id)}>
+                            Siguiendo
+                        </Button>
+                    ) : (
+                        <Button size="sm" className="text-[11px] h-7 px-3 rounded-lg" onClick={() => onFollow(user.id)}>
+                            Seguir
+                        </Button>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function FriendsPage() {
     const { session, user } = useAuth();
     const navigate = useNavigate();
@@ -88,35 +128,6 @@ export function FriendsPage() {
         { key: 'following', label: 'Siguiendo', count: following.length },
     ];
 
-    const renderUserCard = (u: FollowUser) => {
-        const isMe = u.id === user?.id;
-        const iFollow = followingSet.has(u.id);
-
-        return (
-            <div key={u.id} className="flex items-center gap-3 py-2.5 px-1">
-                <Link to={`/profile/${u.id}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    {u.avatar_url ? <img src={u.avatar_url} alt="" className="h-11 w-11 rounded-full object-cover" /> : <UserIcon className="h-5 w-5 text-primary" />}
-                </Link>
-                <div className="flex-1 min-w-0">
-                    <Link to={`/profile/${u.id}`} className="text-[13px] font-semibold hover:text-primary truncate block">{u.full_name}</Link>
-                    {u.career && <p className="text-[11px] text-muted-foreground truncate">{u.career.name}</p>}
-                </div>
-                {!isMe && (
-                    <div className="shrink-0">
-                        {iFollow ? (
-                            <Button variant="outline" size="sm" className="text-[11px] h-7 px-3 rounded-lg" onClick={() => handleUnfollow(u.id)}>
-                                Siguiendo
-                            </Button>
-                        ) : (
-                            <Button size="sm" className="text-[11px] h-7 px-3 rounded-lg" onClick={() => handleFollow(u.id)}>
-                                Seguir
-                            </Button>
-                        )}
-                    </div>
-                )}
-            </div>
-        );
-    };
 
     const emptyState = (message: string) => (
         <div className="py-16 text-center">
@@ -166,17 +177,17 @@ export function FriendsPage() {
                 <div className="divide-y divide-border/50">
                     {tab === 'friends' && (friends.length === 0
                         ? emptyState(isOwnPage ? 'Sigue a alguien y cuando te sigan de vuelta, serán amigos.' : 'No tiene amigos aún.')
-                        : friends.map(f => renderUserCard(f))
+                        : friends.map(f => <UserCard key={f.id} user={f} currentUserId={user?.id} iFollow={followingSet.has(f.id)} onFollow={handleFollow} onUnfollow={handleUnfollow} />)
                     )}
 
                     {tab === 'followers' && (followers.length === 0
                         ? emptyState(isOwnPage ? 'Nadie te sigue aún.' : 'No tiene seguidores.')
-                        : followers.map(f => renderUserCard(f))
+                        : followers.map(f => <UserCard key={f.id} user={f} currentUserId={user?.id} iFollow={followingSet.has(f.id)} onFollow={handleFollow} onUnfollow={handleUnfollow} />)
                     )}
 
                     {tab === 'following' && (following.length === 0
                         ? emptyState(isOwnPage ? 'No sigues a nadie aún.' : 'No sigue a nadie.')
-                        : following.map(f => renderUserCard(f))
+                        : following.map(f => <UserCard key={f.id} user={f} currentUserId={user?.id} iFollow={followingSet.has(f.id)} onFollow={handleFollow} onUnfollow={handleUnfollow} />)
                     )}
                 </div>
             )}

@@ -1,5 +1,8 @@
-import { useState, useRef, useEffect, memo } from 'react';
+import { useState, useRef, useEffect, memo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useInView } from '@/hooks/useInView';
+import { use3DTilt } from '@/hooks/use3DTilt';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -153,13 +156,49 @@ function PublicationCardInner({
     const [likersLoading, setLikersLoading] = useState(false);
     const [likersTotal, setLikersTotal] = useState(0);
 
+    const likeButtonRef = useRef<HTMLButtonElement>(null);
+
+    const triggerSparkle = useCallback(() => {
+        const btn = likeButtonRef.current;
+        if (!btn) return;
+        const rect = btn.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const colors = ['#f43f5e', '#fb7185', '#fda4af', '#ff6b6b', '#ffd700'];
+        for (let i = 0; i < 8; i++) {
+            const dot = document.createElement('div');
+            const angle = (i / 8) * Math.PI * 2;
+            const distance = 28 + Math.random() * 18;
+            const size = 4 + Math.random() * 5;
+            dot.style.cssText = `
+                position: fixed;
+                left: ${cx}px;
+                top: ${cy}px;
+                width: ${size}px;
+                height: ${size}px;
+                border-radius: 50%;
+                background: ${colors[i % colors.length]};
+                pointer-events: none;
+                z-index: 9999;
+                transform: translate(-50%, -50%);
+                transition: transform 0.45s cubic-bezier(.22,.68,0,1.2), opacity 0.45s ease;
+            `;
+            document.body.appendChild(dot);
+            requestAnimationFrame(() => {
+                dot.style.transform = `translate(calc(-50% + ${Math.cos(angle) * distance}px), calc(-50% + ${Math.sin(angle) * distance}px)) scale(0)`;
+                dot.style.opacity = '0';
+            });
+            setTimeout(() => dot.remove(), 500);
+        }
+    }, []);
+
     const handleToggleLike = async () => {
         if (liking) return;
         setLiking(true);
         const wasLiked = liked;
-        // Optimistic update
         setLiked(!wasLiked);
         setLikesCount(prev => prev + (wasLiked ? -1 : 1));
+        if (!wasLiked) triggerSparkle();
         try {
             onLike?.(publication.id);
         } catch {
@@ -219,7 +258,6 @@ function PublicationCardInner({
 
     // Comments
     const [showComments, setShowComments] = useState(false);
-    useBodyScrollLock(showComments || showOptions || showLikers || showEdit);
     const [comments, setComments] = useState<Comment[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);
     const [commentText, setCommentText] = useState('');
@@ -233,6 +271,8 @@ function PublicationCardInner({
         ? publication.media
         : publication.image_url ? [{ type: 'image' as const, url: publication.image_url }] : [];
     const touchStartX = useRef(0);
+
+    useBodyScrollLock(showComments || showOptions || showLikers || showEdit || showBanModal || mediaExpanded);
 
     const loadComments = async () => {
         if (!session?.access_token) return;
@@ -249,6 +289,8 @@ function PublicationCardInner({
     // scrolled into (or near) the viewport. Avoids N simultaneous requests
     // on long feeds. Trigger once — don't re-fetch if user scrolls back.
     const [cardRef, cardInView] = useInView<HTMLElement>({ rootMargin: '200px', once: true });
+    use3DTilt(cardRef);
+    useScrollReveal(cardRef);
     useEffect(() => {
         if (cardInView && localCommentsCount > 0 && comments.length === 0 && !commentsLoading) {
             loadComments();
@@ -276,7 +318,7 @@ function PublicationCardInner({
     };
 
     return (
-        <article ref={cardRef} className="border-b border-border/40 bg-background pt-4 pb-3 flex flex-col gap-2 md:rounded-xl md:border md:p-4 md:shadow-sm md:mb-4">
+        <article ref={cardRef} className="max-md:border-b max-md:border-border/40 max-md:bg-background pt-4 pb-3 flex flex-col gap-2 md:liquid-glass md:liquid-glass-hover md:p-4 md:mb-5">
             {/* Header */}
             {hideAuthor ? (
                 <div className="flex items-center justify-between px-4 md:px-0">
@@ -434,12 +476,30 @@ function PublicationCardInner({
             {/* Actions + counts */}
             <div className="px-4 md:px-0">
                 <div className="flex items-center gap-0.5 -ml-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500 rounded-full active:scale-95 transition-all" onClick={handleToggleLike} disabled={liking}>
-                        <HeartIcon className={`h-5 w-5 transition-all ${liked ? 'fill-red-500 text-red-500' : ''}`} />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full active:scale-95 text-muted-foreground hover:text-foreground" onClick={handleOpenComments}>
-                        <MessageCircleIcon className="h-5 w-5" />
-                    </Button>
+                    <button
+                        ref={likeButtonRef}
+                        className={`relative h-9 w-9 flex items-center justify-center rounded-full transition-all duration-200 active:scale-90 disabled:opacity-50
+                            ${ liked
+                                ? 'text-red-500'
+                                : 'text-muted-foreground hover:text-red-400'
+                            }`}
+                        style={liked ? {
+                            boxShadow: 'var(--nm-shadow-sm)',
+                            background: 'var(--nm-bg)',
+                        } : undefined}
+                        onClick={handleToggleLike}
+                        disabled={liking}
+                        aria-label="Me gusta"
+                    >
+                        <HeartIcon className={`h-[18px] w-[18px] transition-all duration-200 ${ liked ? 'fill-red-500 scale-110' : 'scale-100' }`} />
+                    </button>
+                    <button
+                        className="h-9 w-9 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-all active:scale-90"
+                        onClick={handleOpenComments}
+                        aria-label="Comentarios"
+                    >
+                        <MessageCircleIcon className="h-[18px] w-[18px]" />
+                    </button>
                 </div>
                 {(likesCount > 0 || localCommentsCount > 0) && (
                     <div className="flex items-center gap-3 text-[13px] mt-0.5">
@@ -505,11 +565,11 @@ function PublicationCardInner({
             </div>
 
             {/* Edit modal */}
-            {showEdit && (
+            {showEdit && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center" onClick={() => !editSaving && setShowEdit(false)}>
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" />
                     <div
-                        className="relative w-full md:max-w-lg md:rounded-2xl rounded-t-2xl bg-background border border-border overflow-hidden animate-in slide-in-from-bottom duration-200 flex flex-col"
+                        className="relative w-full md:max-w-lg md:rounded-2xl rounded-t-2xl bg-background border border-border overflow-hidden modal-elastic flex flex-col"
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="flex justify-center pt-3 pb-1 md:hidden">
@@ -552,14 +612,14 @@ function PublicationCardInner({
                         </div>
                     </div>
                 </div>
-            )}
+            , document.body)}
 
             {/* Likers modal */}
-            {showLikers && (
+            {showLikers && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center" onClick={() => setShowLikers(false)}>
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" />
                     <div
-                        className="relative w-full md:max-w-lg md:rounded-2xl rounded-t-2xl bg-background border border-border overflow-hidden animate-in slide-in-from-bottom duration-200 flex flex-col"
+                        className="relative w-full md:max-w-lg md:rounded-2xl rounded-t-2xl bg-background border border-border overflow-hidden modal-elastic flex flex-col"
                         style={{ maxHeight: '75vh' }}
                         onClick={e => e.stopPropagation()}
                     >
@@ -604,14 +664,14 @@ function PublicationCardInner({
                         </div>
                     </div>
                 </div>
-            )}
+            , document.body)}
 
             {/* Comments modal */}
-            {showComments && (
+            {showComments && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center" onClick={() => setShowComments(false)}>
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" />
                     <div
-                        className="relative w-full md:max-w-lg md:rounded-2xl rounded-t-2xl bg-background border border-border overflow-hidden animate-in slide-in-from-bottom duration-200 flex flex-col"
+                        className="relative w-full md:max-w-lg md:rounded-2xl rounded-t-2xl bg-background border border-border overflow-hidden modal-elastic flex flex-col"
                         style={{ maxHeight: '85vh' }}
                         onClick={e => e.stopPropagation()}
                     >
@@ -669,7 +729,7 @@ function PublicationCardInner({
                                 value={commentText}
                                 onChange={e => setCommentText(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSubmitComment()}
-                                className="h-10 text-sm flex-1 rounded-xl"
+                                className="h-10 text-sm flex-1 rounded-xl neu-inset border-transparent"
                                 maxLength={500}
                                 disabled={commentSending}
                                 autoFocus
@@ -687,11 +747,11 @@ function PublicationCardInner({
                         </div>
                     </div>
                 </div>
-            )}
+            , document.body)}
 
             {/* Media expanded overlay */}
-            {mediaExpanded && mediaItems.length > 0 && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90" onClick={() => setMediaExpanded(false)}>
+            {mediaExpanded && mediaItems.length > 0 && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 animate-in fade-in duration-200" onClick={() => setMediaExpanded(false)}>
                     <button
                         className="absolute top-4 right-4 bg-white/10 text-white rounded-full p-2 hover:bg-white/20 transition-colors z-10"
                         onClick={() => setMediaExpanded(false)}
@@ -743,13 +803,13 @@ function PublicationCardInner({
                         </button>
                     )}
                 </div>
-            )}
+            , document.body)}
 
             {/* Options Action Sheet */}
-            {showOptions && (
+            {showOptions && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-end justify-center" onClick={() => setShowOptions(false)}>
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                    <div className="relative w-full shadow-2xl md:max-w-sm rounded-t-2xl bg-card border-x border-t border-border pb-[env(safe-area-inset-bottom)] animate-in slide-in-from-bottom duration-200" onClick={e => e.stopPropagation()}>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" />
+                    <div className="relative w-full shadow-2xl md:max-w-sm rounded-t-2xl bg-card border-x border-t border-border pb-[env(safe-area-inset-bottom)] modal-elastic" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1.5 rounded-full bg-border" /></div>
                         
                         <div className="flex flex-col p-3 space-y-1.5 max-h-[70vh] overflow-y-auto">
@@ -797,13 +857,13 @@ function PublicationCardInner({
                         </div>
                     </div>
                 </div>
-            )}
+            , document.body)}
 
             {/* Ban Modal */}
-            {showBanModal && (
+            {showBanModal && createPortal(
                 <div className="fixed inset-0 z-[110] flex items-end justify-center" onClick={() => setShowBanModal(false)}>
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                    <div className="relative w-full shadow-2xl md:max-w-sm rounded-t-2xl bg-card border-x border-t border-border p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom duration-200" onClick={e => e.stopPropagation()}>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" />
+                    <div className="relative w-full shadow-2xl md:max-w-sm rounded-t-2xl bg-card border-x border-t border-border p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] modal-elastic" onClick={e => e.stopPropagation()}>
                         <div className="flex flex-col items-center text-center space-y-3">
                             <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
                                 <ShieldAlertIcon className="h-6 w-6" />
@@ -836,7 +896,7 @@ function PublicationCardInner({
                         </div>
                     </div>
                 </div>
-            )}
+            , document.body)}
 
             {/* Moderation Modals */}
             <ModerationModal

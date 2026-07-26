@@ -31,14 +31,14 @@ interface AuditAction {
 }
 
 const ACTION_LABELS: Record<string, string> = {
-    delete_publication: '🗑️ Pub. eliminada',
-    delete_comment: '🗑️ Com. eliminado',
-    warn_user: '⚠️ Advertencia',
-    ban_user: '🚫 Ban',
-    unban_user: '✅ Desban',
-    role_change: '🔄 Rol',
-    resolve_report: '✓ Reporte',
-    dismiss_report: '✕ Reporte',
+    delete_publication: 'Pub. eliminada',
+    delete_comment: 'Com. eliminado',
+    warn_user: 'Advertencia',
+    ban_user: 'Ban',
+    unban_user: 'Desban',
+    role_change: 'Rol',
+    resolve_report: 'Reporte resuelto',
+    dismiss_report: 'Reporte descartado',
 };
 
 const ROLE_COLORS = {
@@ -434,7 +434,7 @@ export function SudoToolsPage() {
 
                     {notifResult && (
                         <div className={`rounded-xl p-3 text-sm ${notifResult.error ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`}>
-                            {notifResult.error ? `Error: ${notifResult.error}` : `✓ Enviado a ${notifResult.sent} usuario(s)`}
+                            {notifResult.error ? `Error: ${notifResult.error}` : `Enviado a ${notifResult.sent} usuario(s) correctamente`}
                         </div>
                     )}
 

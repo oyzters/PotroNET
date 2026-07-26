@@ -427,7 +427,7 @@ function ScheduleGrid({ blocks, startHour, endHour, slotHeight, onBlockClick, on
                                             <p className="text-[10px] font-bold leading-tight truncate">{b.subject_name}</p>
                                             <p className="text-[9px] opacity-90 leading-tight">{formatTime(b.start_time)}–{formatTime(b.end_time)}</p>
                                             {height > slotHeight * 2 && b.classroom && (
-                                                <p className="text-[9px] opacity-80 leading-tight truncate">📍 {b.classroom}</p>
+                                                <p className="text-[9px] opacity-80 leading-tight truncate">{b.classroom}</p>
                                             )}
                                         </button>
                                     );

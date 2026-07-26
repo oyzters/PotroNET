@@ -95,7 +95,7 @@ export function ProfessorsPage() {
     };
 
     return (
-        <div className="min-h-dvh">
+        <div className="min-h-dvh pb-24 md:pb-6">
             {/* Confirmation modal */}
             {showSuccess && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSuccess(false)}>

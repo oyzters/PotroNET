@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
@@ -52,6 +53,14 @@ interface UserSubject { id: string; subject_id: string; status: string; subject:
 
 
 type WallTab = 'grid' | 'info' | 'horario';
+
+function getReputationRank(rep: number) {
+    if (rep >= 100) return { label: 'Potro Leyenda', color: 'from-amber-400 to-yellow-500', text: 'text-amber-400', border: 'border-amber-400/40' };
+    if (rep >= 50) return { label: 'Potro Oro', color: 'from-yellow-400 to-amber-500', text: 'text-amber-400', border: 'border-yellow-400/40' };
+    if (rep >= 20) return { label: 'Potro Plata', color: 'from-slate-300 to-slate-400', text: 'text-slate-300', border: 'border-slate-400/40' };
+    if (rep >= 5) return { label: 'Potro Bronce', color: 'from-amber-700 to-amber-800', text: 'text-amber-600', border: 'border-amber-700/40' };
+    return { label: 'Potro Novato', color: 'from-primary/60 to-primary', text: 'text-primary', border: 'border-primary/30' };
+}
 
 export function ProfilePage() {
     const { id } = useParams<{ id: string }>();
@@ -142,6 +151,13 @@ export function ProfilePage() {
 
     useEffect(() => { if (tab === 'grid') fetchPosts(); }, [fetchPosts, tab]);
 
+    // Reset posts state when navigating to a different profile
+    useEffect(() => {
+        setPostsPage(1);
+        setPosts([]);
+        setTab('grid');
+    }, [id]);
+
     // Fetch roadmap when info tab opens
     useEffect(() => {
         if (tab !== 'info' || !session?.access_token || !id || !profile?.career_id) return;
@@ -218,7 +234,7 @@ export function ProfilePage() {
             setProfile(data.profile);
             setEditing(false);
             refreshProfile();
-        } catch { /* silent */ } finally { setSaving(false); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo guardar el perfil'); } finally { setSaving(false); }
     };
 
     const handleToggleBan = async () => {
@@ -232,7 +248,7 @@ export function ProfilePage() {
             });
             setProfile(prev => prev ? { ...prev, is_banned: !prev.is_banned } : prev);
             setShowBanModal(false);
-        } catch { /* */ } finally { setBanning(false); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo actualizar el usuario'); } finally { setBanning(false); }
     };
 
     // Like a publication
@@ -334,7 +350,7 @@ export function ProfilePage() {
     const joinDate = new Date(profile.created_at).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
 
     return (
-        <div className="space-y-0">
+        <div className="space-y-0 pb-24 md:pb-6">
             {/* Inputs de archivo ocultos */}
             <input
                 ref={avatarInputRef}
@@ -373,119 +389,131 @@ export function ProfilePage() {
                 </div>
             )}
 
-            {/* ── INFO BOXES (INSTAGRAM STYLE) ── */}
-            <div className="px-4 py-2 bg-background pt-3 pb-0">
-                <div className="flex items-center justify-between mb-4">
-                    {/* Avatar */}
-                    <div className="relative h-20 w-20 shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => profile.avatar_url && !uploadingAvatar && setAvatarExpanded(true)}
-                            className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20 p-0.5 overflow-hidden shadow-sm cursor-pointer active:scale-95 transition-transform"
-                        >
-                            <div className="h-full w-full rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                                {uploadingAvatar ? (
-                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                ) : profile.avatar_url ? (
-                                    <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
-                                ) : (
-                                    <UserIcon className="h-8 w-8 text-primary" />
-                                )}
-                            </div>
-                        </button>
-                        {isOwnProfile && !editing && (
-                            <button
-                                onClick={() => avatarInputRef.current?.click()}
-                                disabled={uploadingAvatar}
-                                className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-md transition hover:bg-primary/90 disabled:opacity-60"
-                                title="Cambiar foto de perfil"
-                            >
-                                <CameraIcon className="h-3 w-3" />
-                            </button>
-                        )}
-                    </div>
-                    
-                    {/* Stats Row */}
-                    <div className="flex-1 flex justify-around ml-4 items-center">
-                        <button onClick={() => setTab('grid')} className="flex flex-col items-center hover:opacity-70 transition-opacity">
-                            <span className="font-bold text-lg">{posts.length}</span>
-                            <span className="text-[11px] text-muted-foreground">Posts</span>
-                        </button>
-                        <Link to={`/friends?user=${id}&tab=followers`} className="flex flex-col items-center hover:opacity-70 transition-opacity">
-                            <span className="font-bold text-lg">{profile.followers_count || 0}</span>
-                            <span className="text-[11px] text-muted-foreground">Seguidores</span>
-                        </Link>
-                        <Link to={`/friends?user=${id}&tab=following`} className="hidden sm:flex flex-col items-center hover:opacity-70 transition-opacity">
-                            <span className="font-bold text-lg">{profile.following_count || 0}</span>
-                            <span className="text-[11px] text-muted-foreground">Siguiendo</span>
-                        </Link>
-                        <Link to="/rankings" className="flex flex-col items-center hover:opacity-70 transition-opacity">
-                            <span className="font-bold text-lg text-amber-500">{profile.reputation}</span>
-                            <span className="text-[11px] text-muted-foreground">Reputación</span>
-                        </Link>
-                    </div>
-                </div>
-
-                {/* Bio Section */}
-                <div className="px-1 mb-4">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                        <h1 className="font-bold text-[15px] leading-tight flex items-center gap-1.5">
-                            {profile.full_name}
-                            {profile.role === 'sudo' ? (
-                                <span className="inline-flex items-center gap-0.5 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-500">
-                                    <ShieldCheckIcon className="h-3 w-3" />
-                                    Sudo
-                                </span>
-                            ) : profile.role === 'admin' ? (
-                                <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-bold text-blue-500">
-                                    <ShieldCheckIcon className="h-3 w-3" />
-                                    Admin
-                                </span>
+            {/* ── CENTERED HERO PROFILE (NO BANNER OPTIMIZED) ── */}
+            <div className="px-4 sm:px-6 pt-6 pb-2 bg-background relative z-10 flex flex-col items-center text-center max-w-2xl mx-auto">
+                {/* Centered Avatar with Ring & Edit Button */}
+                <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 mb-3">
+                    <button
+                        type="button"
+                        onClick={() => profile.avatar_url && !uploadingAvatar && setAvatarExpanded(true)}
+                        className="flex h-full w-full items-center justify-center rounded-full bg-background ring-4 ring-primary/20 shadow-2xl p-1 overflow-hidden cursor-pointer active:scale-95 transition-transform"
+                    >
+                        <div className="h-full w-full rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                            {uploadingAvatar ? (
+                                <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            ) : profile.avatar_url ? (
+                                <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
                             ) : (
-                                <CheckIcon className="h-3.5 w-3.5 text-blue-500" />
+                                <UserIcon className="h-10 w-10 text-primary" />
                             )}
-                            {profile.is_banned && (
-                                <span className="inline-flex items-center gap-0.5 rounded-md bg-destructive/15 px-1.5 py-0.5 text-[10px] font-bold text-destructive">
-                                    <BanIcon className="h-3 w-3" />
-                                    Baneado
-                                </span>
-                            )}
-                        </h1>
-                    </div>
-                    {profile.career && (
-                        <p className="text-[13px] text-muted-foreground/90 font-medium mb-1 line-clamp-1 flex items-center gap-1">
-                            <GraduationCapIcon className="h-3.5 w-3.5" />
-                            {profile.career.name} · Sem. {profile.semester}
-                        </p>
-                    )}
-                    <p className="text-[13px] leading-snug whitespace-pre-wrap">{profile.bio}</p>
-                    {profile.interests?.length > 0 && (
-                        <p className="text-[13px] text-primary mt-1 line-clamp-2">
-                            {profile.interests.map(i => `#${i.replace(/\s+/g, '')}`).join(' ')}
-                        </p>
+                        </div>
+                    </button>
+                    {isOwnProfile && !editing && (
+                        <button
+                            onClick={() => avatarInputRef.current?.click()}
+                            disabled={uploadingAvatar}
+                            className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-lg transition hover:scale-110 active:scale-95 disabled:opacity-60"
+                            title="Cambiar foto de perfil"
+                        >
+                            <CameraIcon className="h-3.5 w-3.5" />
+                        </button>
                     )}
                 </div>
 
-                {/* Action buttons */}
-                <div className="flex gap-2 mb-4">
+                {/* Identity & Badges */}
+                <div className="flex flex-col items-center">
+                    <h1 className="font-extrabold text-xl sm:text-2xl tracking-tight leading-tight flex items-center justify-center gap-2 flex-wrap">
+                        <span>{profile.full_name}</span>
+                        {profile.role === 'sudo' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-0.5 text-[10px] font-bold text-red-500 border border-red-500/30">
+                                <ShieldCheckIcon className="h-3 w-3" />
+                                Sudo
+                            </span>
+                        ) : profile.role === 'admin' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2.5 py-0.5 text-[10px] font-bold text-blue-500 border border-blue-500/30">
+                                <ShieldCheckIcon className="h-3 w-3" />
+                                Admin
+                            </span>
+                        ) : (
+                            <CheckIcon className="h-4 w-4 text-blue-500" />
+                        )}
+                        {profile.is_banned && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2.5 py-0.5 text-[10px] font-bold text-destructive border border-destructive/30">
+                                <BanIcon className="h-3 w-3" />
+                                Baneado
+                            </span>
+                        )}
+                    </h1>
+
+                    {profile.career && (
+                        <p className="text-[13px] text-muted-foreground font-semibold mt-1 flex items-center justify-center gap-1.5 flex-wrap">
+                            <GraduationCapIcon className="h-4 w-4 text-primary shrink-0" />
+                            <span>{profile.career.name}</span>
+                            <span className="opacity-40">•</span>
+                            <span className="text-foreground/80">Semestre {profile.semester}</span>
+                        </p>
+                    )}
+
+                    {profile.bio && (
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90 mt-2 max-w-md">{profile.bio}</p>
+                    )}
+
+                    {profile.interests?.length > 0 && (
+                        <div className="flex flex-wrap justify-center gap-1.5 mt-2.5">
+                            {profile.interests.map(i => (
+                                <span key={i} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors">
+                                    #{i.trim().replace(/\s+/g, '')}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Liquid Stat Deck (Centered Horizontal Glass Grid) */}
+                {(() => {
+                    const rank = getReputationRank(profile.reputation || 0);
+                    return (
+                        <div className="w-full max-w-xl my-4 bento-card-glass p-3 grid grid-cols-4 gap-2">
+                            <button onClick={() => setTab('grid')} className="flex flex-col items-center justify-center p-1.5 hover:opacity-80 transition-opacity">
+                                <span className="font-extrabold text-base sm:text-lg leading-tight">{posts.length}</span>
+                                <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold">Posts</span>
+                            </button>
+                            <Link to={`/friends?user=${id}&tab=followers`} className="flex flex-col items-center justify-center p-1.5 hover:opacity-80 transition-opacity">
+                                <span className="font-extrabold text-base sm:text-lg leading-tight">{profile.followers_count || 0}</span>
+                                <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold">Seguidores</span>
+                            </Link>
+                            <Link to={`/friends?user=${id}&tab=following`} className="flex flex-col items-center justify-center p-1.5 hover:opacity-80 transition-opacity">
+                                <span className="font-extrabold text-base sm:text-lg leading-tight">{profile.following_count || 0}</span>
+                                <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold">Siguiendo</span>
+                            </Link>
+                            <Link to="/rankings" className="flex flex-col items-center justify-center p-1.5 hover:opacity-80 transition-opacity">
+                                <span className={`font-extrabold text-base sm:text-lg leading-tight ${rank.text}`}>{profile.reputation || 0}</span>
+                                <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold line-clamp-1">{rank.label}</span>
+                            </Link>
+                        </div>
+                    );
+                })()}
+
+                {/* Action Buttons Deck */}
+                <div className="flex justify-center gap-2.5 w-full max-w-md mb-2">
                     {isOwnProfile ? (
                         <>
-                            <Button variant="secondary" className="flex-1 h-8 text-xs font-semibold rounded-lg bg-muted/60" onClick={() => setEditing(!editing)}>
+                            <Button variant="secondary" className="flex-1 h-9 text-xs font-bold rounded-xl liquid-glass border border-white/10 hover:bg-primary/10 transition-all active:scale-95" onClick={() => setEditing(!editing)}>
                                 {editing ? 'Cancelar edición' : 'Editar perfil'}
                             </Button>
                             {profile.career && (
                                 <Link to={`/roadmap/${profile.id || id}`} className="flex-1">
-                                    <Button variant="secondary" className="w-full h-8 text-xs font-semibold rounded-lg bg-muted/60">
+                                    <Button variant="secondary" className="w-full h-9 text-xs font-bold rounded-xl liquid-glass border border-white/10 hover:bg-primary/10 transition-all active:scale-95">
                                         Mapa Curricular
                                     </Button>
                                 </Link>
                             )}
                         </>
                     ) : (
-                        <div className="flex gap-2 flex-1">
+                        <div className="flex gap-2 flex-1 justify-center">
                             {followStatus === 'none' || followStatus === 'follows_you' ? (
                                 <Button
-                                    className="flex-1 h-8 text-xs font-semibold rounded-lg"
+                                    className="flex-1 h-9 text-xs font-bold rounded-xl shadow-md transition-all active:scale-95"
                                     disabled={followLoading || followCheckLoading}
                                     onClick={handleFollow}
                                 >
@@ -494,17 +522,17 @@ export function ProfilePage() {
                                 </Button>
                             ) : (
                                 <Button
-                                    className="flex-1 h-8 text-xs font-semibold rounded-lg"
+                                    className="flex-1 h-9 text-xs font-bold rounded-xl transition-all active:scale-95"
                                     variant={followStatus === 'friends' ? 'secondary' : 'outline'}
                                     disabled={followLoading || followCheckLoading}
                                     onClick={handleUnfollow}
                                 >
                                     {followLoading && <div className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />}
-                                    {followStatus === 'friends' ? 'Amigos ✓' : 'Siguiendo'}
+                                    {followStatus === 'friends' ? 'Amigos' : 'Siguiendo'}
                                 </Button>
                             )}
                             <Link to={`/messages/${id}`}>
-                                <Button variant="outline" className="h-8 text-xs font-semibold rounded-lg" size="icon">
+                                <Button variant="outline" className="h-9 w-9 text-xs font-bold rounded-xl liquid-glass" size="icon">
                                     <MessageCircleIcon className="h-4 w-4" />
                                 </Button>
                             </Link>
@@ -512,7 +540,7 @@ export function ProfilePage() {
                                 <>
                                     <Button 
                                         variant="outline" 
-                                        className="h-8 text-xs font-semibold rounded-lg text-amber-500 border-amber-500/50 hover:bg-amber-500/10" 
+                                        className="h-9 w-9 text-xs font-bold rounded-xl text-amber-500 border-amber-500/50 hover:bg-amber-500/10" 
                                         size="icon"
                                         onClick={() => setIsWarnModalOpen(true)}
                                     >
@@ -535,7 +563,7 @@ export function ProfilePage() {
                             {isSudo && !isOwnProfile && profile.role !== 'sudo' && (
                                 <Button 
                                     variant="outline" 
-                                    className={`h-8 text-xs font-semibold rounded-lg border-destructive/50 hover:bg-destructive/10 ${profile.is_banned ? 'text-emerald-500 border-emerald-500/50 hover:bg-emerald-500/10' : 'text-destructive'}`}
+                                    className={`h-9 w-9 text-xs font-bold rounded-xl border-destructive/50 hover:bg-destructive/10 ${profile.is_banned ? 'text-emerald-500 border-emerald-500/50 hover:bg-emerald-500/10' : 'text-destructive'}`}
                                     size="icon"
                                     onClick={() => setShowBanModal(true)}
                                     disabled={banning}
@@ -549,7 +577,7 @@ export function ProfilePage() {
                 
                 {/* Upload Error */}
                 {uploadError && (
-                    <div className="mb-4 flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                    <div className="mb-4 w-full flex items-center justify-between rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                         <span>{uploadError}</span>
                         <button onClick={() => setUploadError('')} className="ml-2 opacity-70 hover:opacity-100"><XIcon className="h-3.5 w-3.5" /></button>
                     </div>
@@ -557,24 +585,24 @@ export function ProfilePage() {
                 
                 {/* Edit Form */}
                 {editing && (
-                    <div className="mb-6 space-y-4 rounded-xl border border-border bg-card p-4">
+                    <div className="mb-6 w-full text-left space-y-4 rounded-2xl border border-border bento-card-glass p-5">
                         <FieldGroup>
                             <Field>
                                 <FieldLabel>Nombre completo</FieldLabel>
-                                <Input value={editName} onChange={e => setEditName(e.target.value)} />
+                                <Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl" />
                             </Field>
                             <Field>
                                 <FieldLabel>Biografía</FieldLabel>
-                                <Textarea value={editBio} onChange={e => setEditBio(e.target.value)} placeholder="Cuéntanos sobre ti..." maxLength={150} className="resize-none text-sm" />
+                                <Textarea value={editBio} onChange={e => setEditBio(e.target.value)} placeholder="Cuéntanos sobre ti..." maxLength={150} className="resize-none text-sm rounded-xl" />
                             </Field>
                             <Field>
                                 <FieldLabel>Intereses (separados por coma)</FieldLabel>
-                                <Input value={editInterests} onChange={e => setEditInterests(e.target.value)} placeholder="ej: programación, robótica" className="text-sm" />
+                                <Input value={editInterests} onChange={e => setEditInterests(e.target.value)} placeholder="ej: programación, robótica" className="text-sm rounded-xl" />
                             </Field>
                             <Field>
                                 <FieldLabel>Carrera</FieldLabel>
                                 <Select value={editCareer} onValueChange={setEditCareer}>
-                                    <SelectTrigger><SelectValue placeholder="Selecciona tu carrera" /></SelectTrigger>
+                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecciona tu carrera" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>{careers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectGroup>
                                     </SelectContent>
@@ -583,7 +611,7 @@ export function ProfilePage() {
                             <Field>
                                 <FieldLabel>Semestre</FieldLabel>
                                 <Select value={editSemester} onValueChange={setEditSemester}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>{Array.from({ length: 12 }, (_, i) => <SelectItem key={i + 1} value={String(i + 1)}>Semestre {i + 1}</SelectItem>)}</SelectGroup>
                                     </SelectContent>
@@ -592,7 +620,7 @@ export function ProfilePage() {
                             <Field>
                                 <FieldLabel>Visibilidad del horario</FieldLabel>
                                 <Select value={editScheduleVisibility} onValueChange={v => setEditScheduleVisibility(v as 'public' | 'followers' | 'private')}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
                                             <SelectItem value="public">Público — lo ve todo PotroNET</SelectItem>
@@ -602,7 +630,7 @@ export function ProfilePage() {
                                     </SelectContent>
                                 </Select>
                             </Field>
-                            <Button onClick={handleSave} disabled={saving} className="w-full">
+                            <Button onClick={handleSave} disabled={saving} className="w-full rounded-xl">
                                 {saving ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : 'Guardar Cambios'}
                             </Button>
                         </FieldGroup>
@@ -610,17 +638,27 @@ export function ProfilePage() {
                 )}
             </div>
 
-            {/* ── TABS ── */}
-            <div className="flex border-b border-border bg-background">
+            {/* ── TABS WITH ANIMATED SLIDING INDICATOR ── */}
+            <div className="flex border-b border-border/80 bg-background/80 backdrop-blur-md sticky top-0 z-20 px-2">
                 {(['grid', 'info', 'horario'] as WallTab[]).map(t => (
-                    <button key={t} onClick={() => setTab(t)}
-                        className={`flex-1 py-3.5 text-[13px] font-semibold flex justify-center items-center gap-2 transition-colors relative ${tab === t ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}
+                    <button
+                        key={t}
+                        onClick={() => setTab(t)}
+                        className={`flex-1 py-3 text-[13px] font-bold flex justify-center items-center gap-2 transition-colors relative ${tab === t ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                        {t === 'grid' ? <ImageIcon className="h-4 w-4" /> : t === 'info' ? <BookOpenIcon className="h-4 w-4" /> : <ClockIcon className="h-4 w-4" />}
-                        <span className="uppercase tracking-wider">
-                            {t === 'grid' ? 'Posts' : t === 'info' ? 'Info' : 'Horario'}
+                        {tab === t && (
+                            <motion.span
+                                layoutId="profile-tab-pill"
+                                className="absolute inset-x-1 inset-y-1 rounded-xl bg-primary/10 border border-primary/20"
+                                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                            />
+                        )}
+                        <span className="relative z-10 flex items-center gap-2">
+                            {t === 'grid' ? <ImageIcon className="h-4 w-4" /> : t === 'info' ? <BookOpenIcon className="h-4 w-4" /> : <ClockIcon className="h-4 w-4" />}
+                            <span className="uppercase tracking-wider">
+                                {t === 'grid' ? 'Posts' : t === 'info' ? 'Info' : 'Horario'}
+                            </span>
                         </span>
-                        {tab === t && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-foreground mx-[10%]" />}
                     </button>
                 ))}
             </div>
@@ -696,22 +734,23 @@ export function ProfilePage() {
                 };
 
                 return (
-                    <div className="bg-background p-4 min-h-[50vh] pb-24 space-y-6">
-                        {/* Info cards */}
+                    <div className="bg-background p-4 sm:p-6 min-h-[50vh] pb-24 space-y-6">
+                        {/* Bento Grid: Academic Credential & Info Cards */}
                         <div className="grid gap-3 sm:grid-cols-2">
                             {[
-                                { label: 'Rol', value: profile.role.charAt(0).toUpperCase() + profile.role.slice(1), icon: UserIcon },
-                                { label: 'Miembro desde', value: joinDate, icon: CalendarIcon },
-                                { label: 'Email Institucional', value: profile.email.replace('@potros.itson.edu.mx', ''), icon: MailIcon },
-                                { label: 'Reputación', value: `${profile.reputation} puntos`, icon: StarIcon },
+                                { label: 'Rol en PotroNET', value: profile.role.charAt(0).toUpperCase() + profile.role.slice(1), icon: UserIcon, detail: profile.role === 'sudo' ? 'Superadministrador' : profile.role === 'admin' ? 'Administrador' : 'Estudiante ITSON' },
+                                { label: 'Miembro desde', value: joinDate, icon: CalendarIcon, detail: 'Comunidad PotroNET' },
+                                { label: 'Correo Institucional', value: profile.email, icon: MailIcon, detail: 'Verificado ITSON' },
+                                { label: 'Reputación Académica', value: `${profile.reputation} Puntos`, icon: StarIcon, detail: getReputationRank(profile.reputation).label },
                             ].map((item, idx) => (
-                                <div key={idx} className="flex items-center gap-3 p-3">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
-                                        <item.icon className="h-5 w-5 text-foreground/70" />
+                                <div key={idx} className="bento-card-glass p-4 flex items-start gap-3.5">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 text-primary">
+                                        <item.icon className="h-5 w-5" />
                                     </div>
-                                    <div className="flex-1 border-b border-border/50 pb-2">
-                                        <p className="text-[11px] font-medium text-muted-foreground">{item.label}</p>
-                                        <p className="mt-0.5 text-[14px] font-semibold">{item.value}</p>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{item.label}</p>
+                                        <p className="mt-0.5 text-[15px] font-extrabold truncate text-foreground">{item.value}</p>
+                                        <p className="text-[11px] text-muted-foreground/80 mt-0.5">{item.detail}</p>
                                     </div>
                                 </div>
                             ))}
@@ -722,7 +761,7 @@ export function ProfilePage() {
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2">
                                     <MapIcon className="h-5 w-5 text-primary" />
-                                    <h3 className="text-base font-bold">Progreso Académico</h3>
+                                    <h3 className="text-base font-extrabold tracking-tight">Progreso Académico</h3>
                                 </div>
 
                                 {roadmapLoading ? (
@@ -734,22 +773,22 @@ export function ProfilePage() {
                                 ) : (
                                     <>
                                         {/* Summary bar */}
-                                        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                                        <div className="bento-card-glass p-5 space-y-3">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm font-semibold">{pct}% completado</span>
-                                                <span className="text-xs text-muted-foreground">{approved}/{total} materias</span>
+                                                <span className="text-sm font-extrabold">{pct}% completado</span>
+                                                <span className="text-xs font-semibold text-muted-foreground">{approved}/{total} materias</span>
                                             </div>
-                                            <div className="h-2.5 overflow-hidden rounded-full bg-muted">
-                                                <div className="flex h-full">
-                                                    <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${(approved / total) * 100}%` }} />
-                                                    <div className="bg-amber-500 transition-all duration-500" style={{ width: `${(inProgress / total) * 100}%` }} />
-                                                    <div className="bg-red-500 transition-all duration-500" style={{ width: `${(failed / total) * 100}%` }} />
+                                            <div className="h-3 overflow-hidden rounded-full bg-muted p-0.5 border border-border/40">
+                                                <div className="flex h-full rounded-full overflow-hidden">
+                                                    <div className="bg-emerald-500 transition-all duration-500 shadow-sm" style={{ width: `${(approved / total) * 100}%` }} />
+                                                    <div className="bg-amber-500 transition-all duration-500 shadow-sm" style={{ width: `${(inProgress / total) * 100}%` }} />
+                                                    <div className="bg-red-500 transition-all duration-500 shadow-sm" style={{ width: `${(failed / total) * 100}%` }} />
                                                 </div>
                                             </div>
-                                            <div className="flex gap-4 text-xs text-muted-foreground">
-                                                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" />{approved} aprobadas</span>
-                                                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500" />{inProgress} cursando</span>
-                                                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" />{failed} reprobadas</span>
+                                            <div className="flex flex-wrap gap-4 text-xs font-semibold text-muted-foreground pt-1">
+                                                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-xs" />{approved} aprobadas</span>
+                                                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500 shadow-xs" />{inProgress} cursando</span>
+                                                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-xs" />{failed} reprobadas</span>
                                             </div>
                                         </div>
 
@@ -759,10 +798,10 @@ export function ProfilePage() {
                                                 const subjects = semesters[sem];
                                                 const semApproved = subjects.filter(s => roadmapStatuses[s.id] === 'APROBADA').length;
                                                 return (
-                                                    <div key={sem} className="rounded-xl border border-border bg-card p-3 space-y-2">
+                                                    <div key={sem} className="bento-card-glass p-3.5 space-y-2">
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-semibold">Semestre {sem}</span>
-                                                            <span className="text-[10px] text-muted-foreground">{semApproved}/{subjects.length}</span>
+                                                            <span className="text-xs font-bold">Semestre {sem}</span>
+                                                            <span className="text-[11px] font-semibold text-muted-foreground">{semApproved}/{subjects.length} aprobadas</span>
                                                         </div>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {subjects.map(subject => {

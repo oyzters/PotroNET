@@ -5,7 +5,6 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { SunIcon, MoonIcon, ArrowLeftIcon, LogInIcon, MailIcon, CheckCircleIcon } from 'lucide-react';
 
 const ALLOWED_DOMAIN = '@potros.itson.edu.mx';
@@ -87,15 +86,15 @@ export function LoginPage() {
 
             {/* Login form */}
             <div className="flex flex-1 items-center justify-center p-4">
-                <Card className="w-full max-w-md">
-                    <CardHeader className="text-center">
+                <div className="w-full max-w-md liquid-glass p-6 md:p-8 animate-in fade-in slide-in-from-bottom-6 duration-500">
+                    <div className="text-center mb-6">
                         <img src="/pwa.png" alt="PotroNET" className="mx-auto mb-4 h-12 w-12 rounded-xl object-cover shadow-lg shadow-primary/25" />
-                        <CardTitle className="text-2xl">Bienvenido de vuelta</CardTitle>
-                        <CardDescription>
+                        <h2 className="text-2xl font-bold tracking-tight text-foreground">Bienvenido de vuelta</h2>
+                        <p className="text-sm text-muted-foreground mt-1.5">
                             Inicia sesión con tu cuenta PotroNET
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                        </p>
+                    </div>
+                    <div>
                         {verifiedSuccess && (
                             <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-600">
                                 <CheckCircleIcon className="h-4 w-4 shrink-0" />
@@ -142,7 +141,7 @@ export function LoginPage() {
                                 )}
                                 <Field>
                                     <FieldLabel htmlFor="login-email">Correo institucional</FieldLabel>
-                                    <div className="flex items-center overflow-hidden rounded-lg border border-input focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                                    <div className="flex items-center overflow-hidden rounded-lg neu-inset border border-transparent focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
                                         <input
                                             id="login-email"
                                             type="text"
@@ -150,7 +149,7 @@ export function LoginPage() {
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
                                             required
-                                            className="min-w-0 flex-1 bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+                                            className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
                                         />
                                         <span className="shrink-0 select-none border-l border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
                                             {ALLOWED_DOMAIN}
@@ -171,6 +170,7 @@ export function LoginPage() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
+                                        className="neu-inset border-transparent"
                                     />
                                 </Field>
                                 <Button type="submit" className="w-full" disabled={loading || !username.trim()}>
@@ -186,7 +186,7 @@ export function LoginPage() {
 
                                 <div className="relative my-2">
                                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
-                                    <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">o continúa con</span></div>
+                                    <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">o continúa con</span></div>
                                 </div>
 
                                 <Button
@@ -209,16 +209,16 @@ export function LoginPage() {
                             </FieldGroup>
                         </form>
                         )}
-                    </CardContent>
-                    <CardFooter className="justify-center">
+                    </div>
+                    <div className="flex justify-center mt-6">
                         <p className="text-sm text-muted-foreground">
                             ¿No tienes cuenta?{' '}
                             <Link to="/register" className="font-medium text-primary hover:underline">
                                 Regístrate aquí
                             </Link>
                         </p>
-                    </CardFooter>
-                </Card>
+                    </div>
+                </div>
             </div>
         </div>
     );

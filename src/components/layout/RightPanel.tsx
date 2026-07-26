@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { use3DTilt } from '@/hooks/use3DTilt';
 import { api } from '@/lib/api';
 import { UserIcon, TrendingUpIcon, UsersIcon, ZapIcon, MapIcon, StarIcon, MessageCircleIcon } from 'lucide-react';
 
@@ -24,16 +25,20 @@ const NEWS = [
     { text: 'PotroNET v2 con nuevas funciones', date: 'Ene 2026' },
 ];
 
-const panelGlass: React.CSSProperties = {
-    background: 'var(--glass-bg)',
-    backdropFilter: 'blur(16px) saturate(1.6)',
-    WebkitBackdropFilter: 'blur(16px) saturate(1.6)',
-    border: '1px solid var(--glass-border)',
-};
 
 export function RightPanel() {
     const { session, profile } = useAuth();
     const [suggested, setSuggested] = useState<SuggestedUser[]>([]);
+
+    const suggestedRef = useRef<HTMLDivElement>(null);
+    const featuresRef = useRef<HTMLDivElement>(null);
+    const newsRef = useRef<HTMLDivElement>(null);
+
+    // El widget de sugeridos monta hasta que llegan datos — sin `enabled`
+    // el efecto correría una sola vez con el ref vacío y nunca tendría tilt.
+    use3DTilt(suggestedRef, { enabled: suggested.length > 0 });
+    use3DTilt(featuresRef);
+    use3DTilt(newsRef);
 
     useEffect(() => {
         const fetchSuggested = async () => {
@@ -64,7 +69,7 @@ export function RightPanel() {
         <div className="sticky top-20 space-y-4">
             {/* Suggested people */}
             {suggested.length > 0 && (
-                <div className="rounded-2xl p-4 transition-all duration-300 hover:shadow-[0_0_20px_oklch(0.68_0.15_237/0.12)]" style={panelGlass}>
+                <div ref={suggestedRef} className="liquid-glass liquid-glass-hover p-5">
                     <div className="mb-3 flex items-center gap-2">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
                             <UsersIcon className="h-3.5 w-3.5 text-primary" />
@@ -95,7 +100,7 @@ export function RightPanel() {
             )}
 
             {/* Features */}
-            <div className="rounded-2xl p-4 transition-all duration-300 hover:shadow-[0_0_20px_oklch(0.68_0.15_237/0.12)]" style={panelGlass}>
+            <div ref={featuresRef} className="liquid-glass liquid-glass-hover p-5">
                 <div className="mb-3 flex items-center gap-2">
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
                         <ZapIcon className="h-3.5 w-3.5 text-primary" />
@@ -115,7 +120,7 @@ export function RightPanel() {
             </div>
 
             {/* News */}
-            <div className="rounded-2xl p-4 transition-all duration-300 hover:shadow-[0_0_20px_oklch(0.68_0.15_237/0.12)]" style={panelGlass}>
+            <div ref={newsRef} className="liquid-glass liquid-glass-hover p-5">
                 <div className="mb-3 flex items-center gap-2">
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
                         <TrendingUpIcon className="h-3.5 w-3.5 text-primary" />

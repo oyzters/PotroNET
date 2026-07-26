@@ -58,7 +58,7 @@ function PodiumCard({ user, rank, isMe }: { user: RankingUser; rank: number; isM
             to={`/profile/${user.id}`}
             className={`flex flex-col items-center gap-1 rounded-2xl border-2 ${s.border} ${s.bg} p-3 transition-transform hover:scale-[1.02] ${rank === 1 ? '-mt-4' : 'mt-2'}`}
         >
-            {rank === 1 && <span className="text-2xl leading-none">👑</span>}
+            {rank === 1 && <TrophyIcon className="h-5 w-5 text-amber-500 mb-0.5" />}
             <div className={`relative ${rank === 1 ? 'rounded-full p-[2px] bg-gradient-to-br from-amber-300 to-amber-600' : ''}`}>
                 <AvatarCircle url={user.avatar_url} name={user.full_name} size={s.avatar} />
             </div>

@@ -53,7 +53,7 @@ export function RankingCard({ users }: { users: RankingUser[] }) {
                 {/* #1 — center, elevated */}
                 {first && (
                     <Link to={`/profile/${first.id}`} className="flex flex-col items-center gap-1 group -mt-2">
-                        <span className="text-lg leading-none mb-0.5">👑</span>
+                        <TrophyIcon className="h-5 w-5 text-amber-500 mb-0.5" />
                         <div className="relative rounded-full p-[2px] bg-gradient-to-br from-amber-300 to-amber-600">
                             <Avatar url={first.avatar_url} size="h-16 w-16" className="border-2 border-background" />
                         </div>

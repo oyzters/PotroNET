@@ -1,16 +1,17 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { AlertTriangleIcon, XIcon, TrashIcon, LoaderIcon } from 'lucide-react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export const MODERATION_CATEGORIES = [
-    { value: 'spam', label: '🚫 Spam', description: 'Contenido repetitivo o publicitario' },
-    { value: 'acoso', label: '😤 Acoso', description: 'Bullying o acoso hacia personas' },
-    { value: 'contenido_sexual', label: '🔞 Contenido sexual', description: 'Material inapropiado o explícito' },
-    { value: 'violencia', label: '⚡ Violencia', description: 'Amenazas o contenido violento' },
-    { value: 'informacion_falsa', label: '❌ Info. falsa', description: 'Desinformación o noticias falsas' },
-    { value: 'odio', label: '🛑 Discurso de odio', description: 'Discriminación o lenguaje de odio' },
-    { value: 'otro', label: '⚠️ Otro', description: 'Otra violación a las normas' },
+    { value: 'spam', label: 'Spam', description: 'Contenido repetitivo o publicitario' },
+    { value: 'acoso', label: 'Acoso', description: 'Bullying o acoso hacia personas' },
+    { value: 'contenido_sexual', label: 'Contenido sexual', description: 'Material inapropiado o explícito' },
+    { value: 'violencia', label: 'Violencia', description: 'Amenazas o contenido violento' },
+    { value: 'informacion_falsa', label: 'Info. falsa', description: 'Desinformación o noticias falsas' },
+    { value: 'odio', label: 'Discurso de odio', description: 'Discriminación o lenguaje de odio' },
+    { value: 'otro', label: 'Otro', description: 'Otra violación a las normas' },
 ] as const;
 
 export type ModerationCategory = typeof MODERATION_CATEGORIES[number]['value'];
@@ -45,11 +46,11 @@ export function ModerationModal({ isOpen, onClose, onConfirm, contentPreview, au
         }
     };
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center" onClick={onClose}>
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300" />
             <div
-                className="relative w-full md:max-w-md md:rounded-2xl rounded-t-3xl bg-background border border-border overflow-hidden animate-in slide-in-from-bottom duration-200"
+                className="relative w-full md:max-w-md md:rounded-2xl rounded-t-3xl bg-background border border-border overflow-hidden modal-elastic"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Handle */}
@@ -145,6 +146,7 @@ export function ModerationModal({ isOpen, onClose, onConfirm, contentPreview, au
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

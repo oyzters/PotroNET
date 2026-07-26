@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,7 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 
 export function TutoringPage() {
     const { session, user } = useAuth();
+    const toast = useToast();
     const [tab, setTab] = useState<'offers' | 'sessions'>('offers');
 
     // Offers state
@@ -139,7 +141,7 @@ export function TutoringPage() {
             setShowCreate(false);
             setNewSubject(''); setNewDescription(''); setTimeBlocks([]);
             fetchOffers();
-        } catch { /* silent */ } finally { setSubmitting(false); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo crear la oferta de tutoría'); } finally { setSubmitting(false); }
     };
 
     const handleRequestSession = async () => {
@@ -158,7 +160,7 @@ export function TutoringPage() {
             setReqDate(''); setReqStart(''); setReqEnd(''); setReqLocation(''); setReqNotes('');
             setTab('sessions');
             fetchSessions();
-        } catch { /* silent */ } finally { setReqSubmitting(false); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo solicitar la tutoría'); } finally { setReqSubmitting(false); }
     };
 
     const handleUpdateSession = async (sessionId: string, status: string) => {
@@ -170,7 +172,7 @@ export function TutoringPage() {
                 body: JSON.stringify({ status }),
             });
             fetchSessions();
-        } catch { /* silent */ } finally { setUpdatingSession(null); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo actualizar la sesión'); } finally { setUpdatingSession(null); }
     };
 
     const pendingSessions = sessions.filter(s => s.status === 'pending');
@@ -178,7 +180,7 @@ export function TutoringPage() {
     const completedSessions = sessions.filter(s => s.status === 'completed');
 
     return (
-        <div className="min-h-dvh">
+        <div className="min-h-dvh pb-24 md:pb-6">
             <div className="px-4 md:px-8">
                 <div className="max-w-4xl mx-auto">
                     <SectionHeader
