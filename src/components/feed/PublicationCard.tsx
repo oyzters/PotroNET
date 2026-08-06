@@ -318,10 +318,10 @@ function PublicationCardInner({
     };
 
     return (
-        <article ref={cardRef} className="max-md:border-b max-md:border-border/40 max-md:bg-background pt-4 pb-3 flex flex-col gap-2 md:liquid-glass md:liquid-glass-hover md:p-4 md:mb-5">
+        <article ref={cardRef} className="relative rounded-3xl bg-card/75 dark:bg-card/45 backdrop-blur-xl border border-border/60 dark:border-white/10 p-4.5 mb-4 shadow-sm shadow-black/5 hover:shadow-md transition-all duration-300 flex flex-col gap-3.5 mx-1 md:mx-0">
             {/* Header */}
             {hideAuthor ? (
-                <div className="flex items-center justify-between px-4 md:px-0">
+                <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
                         {timeAgo(publication.created_at)}
                     </span>
@@ -330,7 +330,7 @@ function PublicationCardInner({
                     </Button>
                 </div>
             ) : (
-                <div className="flex items-center justify-between px-4 md:px-0">
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                         <Link
                             to={`/profile/${author.id}`}
@@ -453,7 +453,7 @@ function PublicationCardInner({
             )}
 
             {/* Content */}
-            <div className="px-4 md:px-0">
+            <div className="w-full">
                 <p className="whitespace-pre-wrap text-[14px] leading-[1.5] text-foreground">
                     {localContent}
                 </p>
@@ -474,7 +474,7 @@ function PublicationCardInner({
             </div>
 
             {/* Actions + counts */}
-            <div className="px-4 md:px-0">
+            <div className="w-full">
                 <div className="flex items-center gap-0.5 -ml-2">
                     <button
                         ref={likeButtonRef}

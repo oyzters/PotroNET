@@ -14,7 +14,7 @@ interface FeedWidgetCardProps {
 
 export function FeedWidgetCard({ bgTint, icon, title, ctaLabel, ctaTo, children }: FeedWidgetCardProps) {
     return (
-        <div className={`${bgTint} overflow-hidden rounded-none md:rounded-xl border-y md:border border-border/30 my-0 md:my-2`}>
+        <div className={`overflow-hidden rounded-3xl bg-card/75 dark:bg-card/45 backdrop-blur-xl border border-border/60 dark:border-white/10 p-4.5 mb-4 shadow-sm shadow-black/5 mx-1 md:mx-0 transition-all duration-300`}>
             <div className="px-4 py-3">
                 <div className="flex items-center justify-between mb-2.5">
                     <div className="flex items-center gap-2">

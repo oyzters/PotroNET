@@ -374,9 +374,9 @@ export function FeedPage() {
       {/* 3D Scrollytelling Hero Container */}
       <div ref={heroRef} className="perspective-1000 w-full mb-6">
         <div ref={card3DRef} className="preserve-3d space-y-4 will-change-transform">
-          {/* Welcome header */}
-          <div className="relative overflow-hidden px-4 pt-6 pb-5 md:liquid-glass md:px-6">
-            <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-primary/3 blur-xl" />
+          {/* Welcome & Create Post Unified Header Card */}
+          <div className="relative overflow-hidden p-5 rounded-3xl bg-card/75 dark:bg-card/45 backdrop-blur-xl border border-border/60 dark:border-white/10 shadow-sm shadow-black/5 mx-1 md:mx-0 md:p-6 space-y-4">
+            <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-primary/3 blur-xl pointer-events-none" />
             <div className="relative">
               <div className="flex items-center justify-between">
                 <h1 ref={titleRef} className="text-[22px] leading-tight" style={{ fontVariationSettings: '"wght" 400' }}>
@@ -394,7 +394,7 @@ export function FeedPage() {
             {/* Mobile-only: tap to create post CTA — compact, glass-style */}
             <button
               onClick={() => setShowCreateModal(true)}
-              className="md:hidden mt-4 w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left neu-raised neu-pressable"
+              className="md:hidden w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left bg-muted/30 hover:bg-muted/50 border border-border/40 transition-all active:scale-[0.98]"
             >
               <div className="h-8 w-8 rounded-full overflow-hidden ring-1 ring-border/40 shrink-0">
                 {profile?.avatar_url ? (
@@ -408,11 +408,9 @@ export function FeedPage() {
               <span className="flex-1 text-sm text-muted-foreground">¿Qué quieres compartir?</span>
               <span className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold text-primary-foreground" style={{ background: 'oklch(0.68 0.15 237)', boxShadow: '0 4px 12px oklch(0.68 0.15 237 / 0.35)' }}>Publicar</span>
             </button>
-          </div>
 
-          {/* Desktop Create Post */}
-          <div className="hidden md:block">
-            <div className="w-full md:max-w-4xl md:mx-auto md:liquid-glass md:p-5">
+            {/* Desktop Create Post embedded seamlessly in the same hero card */}
+            <div className="hidden md:block pt-3 border-t border-border/40">
               <CreatePost onPost={handleNewPost} />
             </div>
           </div>
