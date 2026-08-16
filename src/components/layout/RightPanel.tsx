@@ -25,20 +25,12 @@ const NEWS = [
     { text: 'PotroNET v2 con nuevas funciones', date: 'Ene 2026' },
 ];
 
-
 export function RightPanel() {
     const { session, profile } = useAuth();
     const [suggested, setSuggested] = useState<SuggestedUser[]>([]);
 
-    const suggestedRef = useRef<HTMLDivElement>(null);
-    const featuresRef = useRef<HTMLDivElement>(null);
-    const newsRef = useRef<HTMLDivElement>(null);
-
-    // El widget de sugeridos monta hasta que llegan datos — sin `enabled`
-    // el efecto correría una sola vez con el ref vacío y nunca tendría tilt.
-    use3DTilt(suggestedRef, { enabled: suggested.length > 0 });
-    use3DTilt(featuresRef);
-    use3DTilt(newsRef);
+    const panelRef = useRef<HTMLDivElement>(null);
+    use3DTilt(panelRef);
 
     useEffect(() => {
         const fetchSuggested = async () => {
@@ -66,79 +58,85 @@ export function RightPanel() {
     }, [session?.access_token, profile?.id]);
 
     return (
-        <div className="sticky top-20 space-y-4">
-            {/* Suggested people */}
-            {suggested.length > 0 && (
-                <div ref={suggestedRef} className="liquid-glass liquid-glass-hover p-5">
+        <div className="sticky top-20">
+            {/* Unified Neumorphic Right Panel Card (iOS 2026) */}
+            <div
+                ref={panelRef}
+                className="relative overflow-hidden rounded-3xl bg-card/75 dark:bg-card/45 backdrop-blur-xl border border-border/60 dark:border-white/10 p-5 shadow-sm shadow-black/5 space-y-5 transition-all duration-300"
+            >
+                {/* Suggested people */}
+                {suggested.length > 0 && (
+                    <div>
+                        <div className="mb-3 flex items-center gap-2">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
+                                <UsersIcon className="h-3.5 w-3.5 text-primary" />
+                            </div>
+                            <span className="text-sm font-semibold">Personas sugeridas</span>
+                        </div>
+                        <div className="space-y-2.5">
+                            {suggested.map(u => (
+                                <Link key={u.id} to={`/profile/${u.id}`}
+                                    className="flex items-center gap-3 rounded-2xl p-2 transition-all duration-200 hover:bg-primary/8 group">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-transparent group-hover:ring-primary/30 transition-all">
+                                        {u.avatar_url
+                                            ? <img src={u.avatar_url} alt={u.full_name} className="h-8 w-8 rounded-full object-cover" />
+                                            : <UserIcon className="h-4 w-4" />
+                                        }
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="truncate text-xs font-medium">{u.full_name}</p>
+                                        {u.career && <p className="truncate text-xs text-muted-foreground">{u.career.name}</p>}
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                        <Link to="/friends" className="mt-2.5 block text-center text-xs font-medium text-primary hover:text-primary/80 transition-colors">
+                            Ver más →
+                        </Link>
+                    </div>
+                )}
+
+                {/* Features section */}
+                <div className={suggested.length > 0 ? "pt-4 border-t border-border/40" : ""}>
                     <div className="mb-3 flex items-center gap-2">
                         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
-                            <UsersIcon className="h-3.5 w-3.5 text-primary" />
+                            <ZapIcon className="h-3.5 w-3.5 text-primary" />
                         </div>
-                        <span className="text-sm font-semibold">Personas sugeridas</span>
+                        <span className="text-sm font-semibold">Funciones PotroNET</span>
                     </div>
-                    <div className="space-y-3">
-                        {suggested.map(u => (
-                            <Link key={u.id} to={`/profile/${u.id}`}
-                                className="flex items-center gap-3 rounded-xl p-2 transition-all duration-200 hover:bg-primary/8 group">
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-transparent group-hover:ring-primary/30 transition-all">
-                                    {u.avatar_url
-                                        ? <img src={u.avatar_url} alt={u.full_name} className="h-8 w-8 rounded-full object-cover" />
-                                        : <UserIcon className="h-4 w-4" />
-                                    }
+                    <div className="space-y-2.5">
+                        {FEATURES.map((f, i) => (
+                            <div key={i} className="flex items-center gap-2.5 text-xs text-muted-foreground">
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                    <f.icon className="h-3.5 w-3.5 text-primary" />
                                 </div>
-                                <div className="min-w-0">
-                                    <p className="truncate text-xs font-medium">{u.full_name}</p>
-                                    {u.career && <p className="truncate text-xs text-muted-foreground">{u.career.name}</p>}
-                                </div>
-                            </Link>
+                                <span>{f.text}</span>
+                            </div>
                         ))}
                     </div>
-                    <Link to="/friends" className="mt-2 block text-center text-xs text-primary hover:text-primary/80 transition-colors">
-                        Ver más →
-                    </Link>
                 </div>
-            )}
 
-            {/* Features */}
-            <div ref={featuresRef} className="liquid-glass liquid-glass-hover p-5">
-                <div className="mb-3 flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
-                        <ZapIcon className="h-3.5 w-3.5 text-primary" />
+                {/* News section */}
+                <div className="pt-4 border-t border-border/40">
+                    <div className="mb-3 flex items-center gap-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
+                            <TrendingUpIcon className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <span className="text-sm font-semibold">Novedades</span>
                     </div>
-                    <span className="text-sm font-semibold">Funciones PotroNET</span>
-                </div>
-                <div className="space-y-2.5">
-                    {FEATURES.map((f, i) => (
-                        <div key={i} className="flex items-center gap-2.5 text-xs text-muted-foreground">
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                                <f.icon className="h-3.5 w-3.5 text-primary" />
+                    <div className="space-y-3">
+                        {NEWS.map((n, i) => (
+                            <div key={i} className="border-b border-border/30 pb-2 last:border-0 last:pb-0">
+                                <p className="text-xs font-medium leading-tight">{n.text}</p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">{n.date}</p>
                             </div>
-                            <span>{f.text}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* News */}
-            <div ref={newsRef} className="liquid-glass liquid-glass-hover p-5">
-                <div className="mb-3 flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15">
-                        <TrendingUpIcon className="h-3.5 w-3.5 text-primary" />
+                        ))}
                     </div>
-                    <span className="text-sm font-semibold">Novedades</span>
-                </div>
-                <div className="space-y-3">
-                    {NEWS.map((n, i) => (
-                        <div key={i} className="border-b border-border/30 pb-2 last:border-0 last:pb-0">
-                            <p className="text-xs font-medium leading-tight">{n.text}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">{n.date}</p>
-                        </div>
-                    ))}
                 </div>
             </div>
 
             {/* Footer */}
-            <p className="px-1 text-xs text-muted-foreground/50">
+            <p className="mt-3 text-center text-xs text-muted-foreground/50">
                 PotroNET © 2026 · ITSON
             </p>
         </div>
